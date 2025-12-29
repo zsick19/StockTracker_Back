@@ -27,6 +27,8 @@ app.use("/", express.static(path.join(__dirname, "/public")));
 app.use("/", require("./routes/root")); //for first test
 app.use("/auth", require("./routes/authRoutes"));
 app.use("/user", require("./routes/userRoutes"));
+app.use("/stockData", require("./routes/stockDataRoutes"));
+app.use("/chartingData", require("./routes/chartingDataRoutes"));
 
 app.all("/*catch", (req, res) => {
   res.status(404);
