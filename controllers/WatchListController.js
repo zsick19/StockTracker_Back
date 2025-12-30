@@ -2,33 +2,77 @@ const ChartableStock = require("../models/ChartableStock");
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
-const { ObjectId } = require("mongodb");
 
-const createUserWatchList = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const macro = req.query.macro;
-  const { title } = req.body;
 
-  if (!userId || !title) return res.statusCode(404);
+const createUserWatchList = asyncHandler(async (req, res) =>
+{
+    const { userId } = req.params;
+    const macro = req.query.macro;
+    const { title } = req.body;
 
-  const foundUser = await User.findById(userId);
-  if (!foundUser) return res.status(401).json({ message: "Unauthorized" });
+    if (!userId || !title) return res.statusCode(404);
 
-  const createdWatchList = await WatchList.create({
-    title: title,
-    tickersContained: [],
-    user: foundUser._id,
-  });
+    const foundUser = await User.findById(userId);
+    if (!foundUser) return res.status(401).json({ message: "Unauthorized" });
 
-  if (macro) {
-    foundUser.macroWatchLists.push(createdWatchList);
-  }
+    const createdWatchList = await WatchList.create({ title: title, tickersContained: [], user: foundUser._id, });
 
-  await foundUser.save();
+    if (macro) { foundUser.macroWatchLists.push(createdWatchList); }
 
-  res.json(createdWatchList);
+    await foundUser.save();
+
+    res.json(createdWatchList);
+});
+
+const addTickerToWatchList = asyncHandler(async (req, res) =>
+{
+    const userIdFromToken = "6952bd331482f8927092ddcc";
+    const tickerToAdd = req.query.ticker.toUpperCase();
+    const { watchListId } = req.params;
+
+    const foundWatchList = await WatchList.findById(watchListId);
+    if (!foundWatchList) return res.status(404);
+
+
+    let tickerAlreadyInWatchlist = false;
+    foundWatchList.tickersContained.map((ticker) => { if (ticker.ticker === tickerToAdd) { tickerAlreadyInWatchlist = true; return; } });
+    if (tickerAlreadyInWatchlist) return;
+
+    const foundChartableTicker = await ChartableStock.findOne({ tickerSymbol: tickerToAdd, chartedBy: userIdFromToken });
+
+    if (foundChartableTicker)
+    {
+        foundWatchList.tickersContained.push({ _id: foundChartableTicker._id, ticker: foundChartableTicker.tickerSymbol, });
+        await foundWatchList.save();
+
+        res.json({ ticker: foundChartableTicker.tickerSymbol, _id: foundChartableTicker._id, });
+    } else
+    {
+        const createdChartableTicker = await ChartableStock.create({ tickerSymbol: tickerToAdd, chartedBy: userIdFromToken, });
+        foundWatchList.tickersContained.push({ _id: createdChartableTicker._id, ticker: createdChartableTicker.tickerSymbol, });
+        await foundWatchList.save();
+
+        res.json({ ticker: createdChartableTicker.tickerSymbol, _id: createdChartableTicker._id, });
+    }
+});
+
+const removeTickerFromWatchList = asyncHandler(async (req, res) =>
+{
+    const tickerToRemove = req.query.ticker.toUpperCase();
+    const { watchListId } = req.params;
+    if (!tickerToRemove) return res.status(400)
+
+
+    const foundWatchList = await WatchList.findById(watchListId);
+    if (!foundWatchList) return res.status(404);
+
+    foundWatchList.tickersContained = foundWatchList.tickersContained.filter((t) => { return t.ticker !== tickerToRemove; });
+    await foundWatchList.save();
+    res.json({ tickerRemoved: tickerToRemove });
 });
 
 module.exports = {
-  createUserWatchList,
+    createUserWatchList,
+    addTickerToWatchList,
+    removeTickerFromWatchList,
 };
