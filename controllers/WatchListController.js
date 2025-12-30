@@ -24,6 +24,27 @@ const createUserWatchList = asyncHandler(async (req, res) =>
     res.json(createdWatchList);
 });
 
+const renameUserWatchList = asyncHandler(async (req, res) =>
+{
+    const { watchListId } = req.params
+    const titleToUpdate = req.query.updatedTitle
+
+    const foundWatchList = await WatchList.findById(watchListId)
+
+    foundWatchList.title = titleToUpdate
+    await foundWatchList.save()
+    res.json({ updatedTitle: foundWatchList.title })
+})
+
+const deleteUserWatchList = asyncHandler(async (req, res) =>
+{
+    const { watchListId } = req.params
+
+    const foundWatchList = await WatchList.findByIdAndDelete(watchListId)
+
+    res.json({ deletedWatchlist: foundWatchList._id })
+})
+
 const addTickerToWatchList = asyncHandler(async (req, res) =>
 {
     const userIdFromToken = "6952bd331482f8927092ddcc";
@@ -73,6 +94,9 @@ const removeTickerFromWatchList = asyncHandler(async (req, res) =>
 
 module.exports = {
     createUserWatchList,
+    renameUserWatchList,
+    deleteUserWatchList,
     addTickerToWatchList,
     removeTickerFromWatchList,
+
 };
