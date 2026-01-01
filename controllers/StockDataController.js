@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
-const { startOfWeek, subDays } = require('date-fns');
+const { startOfWeek, subDays, subBusinessDays } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -19,14 +19,26 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
 
   let start = new Date()
   let end = subDays(new Date(), 1)
-  start = subDays(start, timeFrame.duration)
-  let options = { timeframe: `${timeFrame.increment}${timeFrame.unitOfIncrement}`, start, end }
+  let timeframeForAlpaca
+
+
+  if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
+  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 3) }
+
+  switch (timeFrame.unitOfIncrement)
+  {
+    case "M": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN); break;
+    case "D": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.DAY); break;
+    case "W": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.WEEK); break;
+    case "H": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.HOUR); break;
+  }
+
 
   try
   {
     await retryOperation(async () =>
     {
-      const data = await alpaca.getBarsV2(ticker, options);
+      const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start, end });
       const mostRecentPrice = await alpaca.getLatestTrade(ticker)
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
