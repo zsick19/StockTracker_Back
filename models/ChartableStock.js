@@ -1,30 +1,30 @@
 const mongoose = require("mongoose");
 
-const weeklyEMSchema = new mongoose.Schema({
-  iVolWeekEMUpper: { type: Number },
-  upperWeeklyEM: { type: Number },
-  lowerWeeklyEM: { type: Number },
-  sigma2UpperWeeklyEM: { type: Number },
-  sigma2LowerWeeklyEM: { type: Number },
-  iVolWeekEMLower: { type: Number },
-  weeklyEM: { type: Number },
-  sigma2EM: { type: Number },
-  weeklyClose: { type: Number },
-  lastUpdated: { type: Date, default: new Date() }
-}, { _id: false })
-
 const dailyEMSchema = new mongoose.Schema({
   iVolDailyEMUpper: { type: Number },
-  upperDailyEM: { type: Number },
-  lowerDailyEM: { type: Number },
   iVolDailyEMLower: { type: Number },
-  lastUpdated: { type: Date, default: new Date() }
+  dailyClose: { type: Number },
+  sigma: { type: Number },
+  lastUpdated: { type: Date }
+}, { _id: false })
+
+const weeklyEMSchema = new mongoose.Schema({
+  iVolWeeklyEMUpper: { type: Number },
+  iVolWeeklyEMLower: { type: Number },
+  weeklyClose: { type: Number },
+  sigma: { type: Number },
+  lastUpdated: { type: Date }
 }, { _id: false })
 
 const monthlyEMSchema = new mongoose.Schema({
-  upperMonthlyEM: { type: Number },
-  lowerMonthlyEM: { type: Number }
+  iVolMonthlyEMUpper: { type: Number },
+  iVolMonthlyEMLower: { type: Number },
+  monthlyClose: { type: Number },
+  sigma: { type: Number },
+  lastUpdated: { type: Date }
 }, { _id: false })
+
+
 
 const standardDeviationSchema = new mongoose.Schema({
   sigma: Number,
@@ -34,16 +34,15 @@ const standardDeviationSchema = new mongoose.Schema({
   std2Lower: { type: Number },
 })
 
-
 const chartableStockSchema = new mongoose.Schema({
   tickerSymbol: { type: String, required: true },
   sector: { type: String },
   keyLevelsCharted: { type: Boolean, default: false },
-  dailyEm: dailyEMSchema,
+  dailyEM: dailyEMSchema,
   weeklyEM: weeklyEMSchema,
   monthlyEM: monthlyEMSchema,
   standardDeviation: standardDeviationSchema,
-  gammaFlipLine: Number,
+  gammaFlip: Number,
   oneDayToExpire: [Number],
   callWall: { type: Number },
   putWall: { type: Number },
