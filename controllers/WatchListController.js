@@ -31,6 +31,8 @@ const renameUserWatchList = asyncHandler(async (req, res) =>
 
     const foundWatchList = await WatchList.findById(watchListId)
 
+    if (foundWatchList.useCase === 'defaultMacro') return res.status(405).json({ error: 'Can not override default watchlist' })
+
     foundWatchList.title = titleToUpdate
     await foundWatchList.save()
     res.json({ updatedTitle: foundWatchList.title })
@@ -87,9 +89,23 @@ const removeTickerFromWatchList = asyncHandler(async (req, res) =>
     const foundWatchList = await WatchList.findById(watchListId);
     if (!foundWatchList) return res.status(404);
 
-    foundWatchList.tickersContained = foundWatchList.tickersContained.filter((t) => { return t.ticker !== tickerToRemove; });
+    let successfulRemoval = true
+    foundWatchList.tickersContained = foundWatchList.tickersContained.filter((t) =>
+    {
+        if (t.keep && t.ticker === tickerToRemove)
+        {
+            successfulRemoval = false
+            return t
+        }
+        else return t.ticker !== tickerToRemove
+    });
     await foundWatchList.save();
-    res.json({ tickerRemoved: tickerToRemove });
+
+    if (successfulRemoval)
+    {
+        res.json({ tickerRemoved: tickerToRemove })
+    }
+    else { res.status(403).json({ message: 'can not delete default ' }) }
 });
 
 module.exports = {

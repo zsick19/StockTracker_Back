@@ -46,6 +46,7 @@ const chartableStockSchema = new mongoose.Schema({
   oneDayToExpire: [Number],
   callWall: { type: Number },
   putWall: { type: Number },
+  useCase:{type:String,immutable:true},
   chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
 
