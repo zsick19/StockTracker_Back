@@ -25,16 +25,6 @@ const fetchKeyLevelsData = asyncHandler(async (req, res) =>
   res.json(keyLevelResponse)
 })
 
-const fetchUsersMacroKeyLevelsDate = asyncHandler(async (req, res) =>
-{
-
-
-
-
-  
-  res.json([{ m: 'ww' }, { m: 'dd' }])
-})
-
 const updateKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params
@@ -105,9 +95,27 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
   res.json({ message: 'connected' })
 })
 
+const fetchUsersMacroKeyLevelsDate = asyncHandler(async (req, res) =>
+{
+  console.log(req.userId)
+
+
+
+
+  res.json([{ _id: 'aa', ticker: 'SPY', dailyEM: { dailyClose: 123.33 } }, { _id: 'bb', ticker: 'DIA', dailyEM: { dailyClose: 25.47 } }])
+})
+
+const updateUsersMacroKeyLevelData = asyncHandler(async (req, res) =>
+{
+
+  res.json({ message: 'connected' })
+})
+
+
 module.exports = {
   fetchChartingData,
   fetchKeyLevelsData,
+  updateKeyLevelData,
   fetchUsersMacroKeyLevelsDate,
-  updateKeyLevelData
+  updateUsersMacroKeyLevelData
 };
