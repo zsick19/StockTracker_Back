@@ -41,10 +41,16 @@ const renameUserWatchList = asyncHandler(async (req, res) =>
 const deleteUserWatchList = asyncHandler(async (req, res) =>
 {
     const { watchListId } = req.params
+    const foundWatchList = await WatchList.findById(watchListId)
+    if (foundWatchList.useCase === 'defaultMacro')
+    {
+        res.status(405).json({ error: 'Default Macro watch lists can not be deleted' })
+    } else
+    {
+        await foundWatchList.deleteOne();
 
-    const foundWatchList = await WatchList.findByIdAndDelete(watchListId)
-
-    res.json({ deletedWatchlist: foundWatchList._id })
+        res.json({ deletedWatchlist: foundWatchList._id })
+    }
 })
 
 const addTickerToWatchList = asyncHandler(async (req, res) =>

@@ -9,6 +9,9 @@ router.route("/login/:userId")
 router.route("/watchlist/:userId")
     .post(WatchListController.createUserWatchList);
 
+router.route('/watchlist/macro')
+    .get(UserController.fetchUserMacroWatchListsWithTickerData)
+
 router.route("/watchlist/:watchListId/edit")
     .put(WatchListController.renameUserWatchList)
     .delete(WatchListController.deleteUserWatchList)
