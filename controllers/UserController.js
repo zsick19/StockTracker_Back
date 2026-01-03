@@ -15,15 +15,7 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   if (!userId) return res.status(400).send("missing information");
 
   const foundUser = await User.findById(userId);
-
-
-  const macroTickersForMostRecentPrices = []
-  foundUser.macroWatchLists.map((watchList) =>
-  {
-    watchList.tickersContained.map(ticker => { macroTickersForMostRecentPrices.push(ticker.ticker) })
-  })
-
-
+  if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
   res.json(foundUser);
 });
@@ -35,10 +27,7 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
   let usersMacroWatchList = foundUser.macroWatchLists
 
   const macroTickersForMostRecentPrices = []
-  usersMacroWatchList.map((watchList) =>
-  {
-    watchList.tickersContained.map(ticker => { macroTickersForMostRecentPrices.push(ticker.ticker) })
-  })
+  usersMacroWatchList.map((watchList) => { watchList.tickersContained.map(ticker => { macroTickersForMostRecentPrices.push(ticker.ticker) }) })
 
   try
   {
