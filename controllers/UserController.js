@@ -11,10 +11,10 @@ const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: proces
 
 const userLoginDataFetch = asyncHandler(async (req, res) =>
 {
-  const { userId } = req.params;
-  if (!userId) return res.status(400).send("missing information");
 
-  const foundUser = await User.findById(userId);
+  if (!req.userId) return res.status(400).send("missing information");
+
+  const foundUser = await User.findById(req.userId);
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
   res.json(foundUser);

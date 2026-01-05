@@ -52,6 +52,14 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
 
 });
 
+const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
+{
+  console.log(req.query.pageSize)
+  console.log(req.body)
+  res.json({ message: 'connected' })
+})
+
 module.exports = {
   stockDataFetchWithLiveFeed,
+  fetchMarketSearchStockData
 };

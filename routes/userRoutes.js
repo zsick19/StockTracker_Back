@@ -3,7 +3,7 @@ const router = express.Router();
 const UserController = require("../controllers/UserController");
 const WatchListController = require("../controllers/WatchListController");
 
-router.route("/login/:userId")
+router.route("/login")
     .get(UserController.userLoginDataFetch);
 
 router.route("/watchlist/:userId")
