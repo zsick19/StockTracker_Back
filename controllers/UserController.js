@@ -43,8 +43,30 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
 
 const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
 {
-  console.log(req.body)
-  res.json({ message: 'connected' })
+  const filterToAdd = req.body
+  if (!filterToAdd) return res.status(400).json({ message: 'Missing required information' })
+
+  const foundUser = await User.findById(req.userId)
+  if (!foundUser) return res.status(404).json({ message: 'User not found.' })
+
+  let savedMarketSearchFilters = foundUser.marketSearchFilters
+
+  let foundDuplicateTitle = false
+  savedMarketSearchFilters.map((filter) =>
+  {
+    if (filter.title === filterToAdd.title)
+    {
+      foundDuplicateTitle = true
+      return
+    }
+  })
+
+  if (foundDuplicateTitle) return res.status(400).json({ message: 'Duplicate Title' })
+
+  foundUser.marketSearchFilters = savedMarketSearchFilters.push(filterToAdd)
+  await foundUser.save()
+
+  res.json(foundUser)
 })
 
 

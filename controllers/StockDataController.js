@@ -55,7 +55,6 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
 
 const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
 {
-  console.log(req.query.page)
   const page = req.query.page
   const pageSize = req.query.pageSize
   const body = req.body
