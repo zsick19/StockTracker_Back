@@ -6,6 +6,9 @@ const WatchListController = require("../controllers/WatchListController");
 router.route("/login")
     .get(UserController.userLoginDataFetch);
 
+router.route("/marketSearch")
+    .post(UserController.createUserSavedMarketFilter)
+
 router.route("/watchlist/:userId")
     .post(WatchListController.createUserWatchList);
 

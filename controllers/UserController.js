@@ -41,7 +41,15 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
   }
 })
 
+const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
+{
+  console.log(req.body)
+  res.json({ message: 'connected' })
+})
+
+
 module.exports = {
   userLoginDataFetch,
-  fetchUserMacroWatchListsWithTickerData
+  fetchUserMacroWatchListsWithTickerData,
+  createUserSavedMarketFilter
 };

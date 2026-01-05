@@ -6,6 +6,7 @@ const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
 const { startOfWeek, subDays, subBusinessDays } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
+const Stock = require("../models/Stock");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -54,9 +55,19 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
 
 const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
 {
-  console.log(req.query.pageSize)
-  console.log(req.body)
-  res.json({ message: 'connected' })
+  console.log(req.query.page)
+  const page = req.query.page
+  const pageSize = req.query.pageSize
+  const body = req.body
+
+  let results = await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } }, { $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }])
+
+  function matchGenerator(body) { if (Object.keys(body).length === 0) { return { "$match": {} } } else { return { "$match": body } } }
+
+  res.json({
+    results,
+    totalResults: 50
+  })
 })
 
 module.exports = {
