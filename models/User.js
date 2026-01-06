@@ -13,11 +13,14 @@ const marketSearchFilter = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema({
   spyChartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
+
   marketSearchFilters: [{ type: marketSearchFilter, default: [] }],
-  userStockHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StockHistory', default: [] }],
   defaultMacroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
   macroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
   personalWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
+
+  unConfirmedPatterns: [{ type: String, default: [] }],
+  userStockHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StockHistory', default: [] }],
 });
 
 module.exports = mongoose.model("User", userSchema);
