@@ -60,18 +60,47 @@ const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
       return
     }
   })
-
   if (foundDuplicateTitle) return res.status(400).json({ message: 'Duplicate Title' })
 
-  foundUser.marketSearchFilters = savedMarketSearchFilters.push(filterToAdd)
+  savedMarketSearchFilters.push(filterToAdd)
+  foundUser.marketSearchFilters = savedMarketSearchFilters
+  console.log(foundUser)
+
+  await foundUser.save()
+  res.json(foundUser.marketSearchFilters)
+})
+
+const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
+{
+  const { index, filterToRemove } = req.body
+  if (!filterToRemove) return res.status(400).json({ message: 'Missing required information' })
+
+  const foundUser = await User.findById(req.userId)
+  if (!foundUser) return res.status(404).json({ message: 'User not found.' })
+
+  let savedMarketSearchFilters = foundUser.marketSearchFilters
+
+  if (savedMarketSearchFilters[index].title === filterToRemove.title)
+  {
+    console.log(index, filterToRemove.title)
+    foundUser.marketSearchFilters = savedMarketSearchFilters.filter((filter, indexT) => indexT !== index)
+  }
+  else { foundUser.marketSearchFilters = savedMarketSearchFilters.filter((filter) => filter.title !== filterToRemove.title) }
+
   await foundUser.save()
 
-  res.json(foundUser)
+
+  res.json(foundUser.marketSearchFilters)
 })
+
+
+
+
 
 
 module.exports = {
   userLoginDataFetch,
   fetchUserMacroWatchListsWithTickerData,
-  createUserSavedMarketFilter
+  createUserSavedMarketFilter,
+  removeUserSavedMarketFilter
 };
