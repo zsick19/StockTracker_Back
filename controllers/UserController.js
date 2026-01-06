@@ -1,5 +1,6 @@
 const ChartableStock = require("../models/ChartableStock");
 const User = require("../models/User");
+const StockHistory = require("../models/StockHistory");
 const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const { ObjectId } = require("mongodb");
@@ -11,10 +12,9 @@ const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: proces
 
 const userLoginDataFetch = asyncHandler(async (req, res) =>
 {
-
   if (!req.userId) return res.status(400).send("missing information");
 
-  const foundUser = await User.findById(req.userId);
+  const foundUser = await User.findById(req.userId).populate('userStockHistory');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
   res.json(foundUser);
@@ -24,15 +24,14 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
 {
   const userId = req.userId
   const foundUser = await User.findById(userId).populate({ path: "macroWatchLists", });
-  let usersMacroWatchList = foundUser.macroWatchLists
 
   const macroTickersForMostRecentPrices = []
-  usersMacroWatchList.map((watchList) => { watchList.tickersContained.map(ticker => { macroTickersForMostRecentPrices.push(ticker.ticker) }) })
+  foundUser.macroWatchLists.map((watchList) => { watchList.tickersContained.map(ticker => { macroTickersForMostRecentPrices.push(ticker.ticker) }) })
 
   try
   {
     const mostRecentPrice = await alpaca.getSnapshots(macroTickersForMostRecentPrices)
-    res.json({ macroWatchList: usersMacroWatchList, tickerData: mostRecentPrice });
+    res.json({ macroWatchList: foundUser.macroWatchLists, tickerData: mostRecentPrice });
 
   } catch (error)
   {
