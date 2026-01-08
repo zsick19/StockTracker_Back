@@ -24,8 +24,6 @@ const monthlyEMSchema = new mongoose.Schema({
   lastUpdated: { type: Date }
 }, { _id: false })
 
-
-
 const standardDeviationSchema = new mongoose.Schema({
   sigma: Number,
   std1Upper: { type: Number },
@@ -46,7 +44,9 @@ const chartableStockSchema = new mongoose.Schema({
   oneDayToExpire: [Number],
   callWall: { type: Number },
   putWall: { type: Number },
-  useCase:{type:String,immutable:true},
+  useCase: { type: String, immutable: true },
+  status: Number,
+  dateAdded: { type: Date, default: new Date() },
   chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
 
