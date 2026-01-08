@@ -15,13 +15,16 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   const { ticker } = req.params;
   const { timeFrame } = req.body
   const liveFeed = req.query.liveFeed;
+  const tickerInfoNeeded = req.query.info;
 
   if (!ticker || !timeFrame) return res.status(400).send('Missing Request Information')
+
+  let tickerInfo
+  if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
 
   let start = new Date()
   let end = subDays(new Date(), 1)
   let timeframeForAlpaca
-
 
   if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
   else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 3) }
@@ -43,7 +46,13 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
       const mostRecentPrice = await alpaca.getLatestTrade(ticker)
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
-      res.json({ candleData, mostRecentPrice: mostRecentPrice })
+      if (tickerInfoNeeded)
+      {
+        res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo })
+      } else
+      {
+        res.json({ candleData, mostRecentPrice: mostRecentPrice })
+      }
     })
   } catch (error)
   {

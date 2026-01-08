@@ -8,6 +8,10 @@ router.route("/found")
 router.route("/unconfirmed")
     .get(PatternController.fetchUsersUnconfirmedPatterns)
 
+router.route("/unconfirmed/sync")
+    .patch(PatternController.syncConfirmRemovePatterns)
+
+
 router.route("/found/:historyId")
     .delete(PatternController.removePatternedStockFromUser)
 
