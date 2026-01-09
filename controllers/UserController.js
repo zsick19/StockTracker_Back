@@ -96,8 +96,9 @@ const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
 const fetchUsersConfirmedPatterns = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId).select('confirmedStocks')
-    .populate({ path: 'confirmedStocks', select: 'tickerSymbol sector status dateAdded' }).lean().exec()
+    .populate({ path: 'confirmedStocks', select: 'tickerSymbol sector status dateAdded', options: { sort: { dateAdded: -1 } } }).lean().exec()
   if (!foundUser) return res.status(404).json({ message: 'User not found.' })
+
   res.json(foundUser.confirmedStocks)
 })
 
