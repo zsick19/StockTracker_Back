@@ -45,6 +45,7 @@ const chartableStockSchema = new mongoose.Schema({
   callWall: { type: Number },
   putWall: { type: Number },
   useCase: { type: String, immutable: true },
+  plannedId: { type: mongoose.Schema.Types.ObjectId, ref: "PlannedStock" },
   status: Number,
   dateAdded: { type: Date, default: new Date() },
   chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
