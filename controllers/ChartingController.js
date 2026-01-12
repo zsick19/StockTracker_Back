@@ -9,6 +9,19 @@ const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
   res.json(foundChartableStock)
 });
 
+const updateUserChartingPerChartId = asyncHandler(async (req, res) =>
+{
+  const { chartId } = req.params;
+  const chartingUpdate = req.body
+  const foundChartableStock = await ChartableStock.findById(chartId)
+  foundChartableStock.charting = chartingUpdate
+  await foundChartableStock.save()
+  res.json(chartingUpdate)
+})
+
+
+
+
 const fetchKeyLevelsData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params;
@@ -115,6 +128,7 @@ const updateUsersMacroKeyLevelData = asyncHandler(async (req, res) =>
 
 module.exports = {
   fetchChartingAndKeyLevelData,
+  updateUserChartingPerChartId,
   fetchKeyLevelsData,
   updateKeyLevelData,
   fetchUsersMacroKeyLevelsDate,

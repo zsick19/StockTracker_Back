@@ -4,7 +4,8 @@ const ChartingController = require("../controllers/ChartingController");
 const { get } = require("mongoose");
 
 router.route("/:chartId")
-    .get(ChartingController.fetchChartingAndKeyLevelData);
+    .get(ChartingController.fetchChartingAndKeyLevelData)
+    .put(ChartingController.updateUserChartingPerChartId)
 
 router.route("/keyLevels/macros")
     .get(ChartingController.fetchUsersMacroKeyLevelsDate)
