@@ -6,6 +6,7 @@ const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params;
   const foundChartableStock = await ChartableStock.findById(chartId).populate('plannedId');
+
   res.json(foundChartableStock)
 });
 

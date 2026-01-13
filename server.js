@@ -33,6 +33,7 @@ app.use("/user", require("./routes/userRoutes"));
 app.use("/stockData", require("./routes/stockDataRoutes"));
 app.use("/chartingData", require("./routes/chartingDataRoutes"));
 app.use("/patterns", require("./routes/patternRoutes"));
+app.use("/enterExitPlan", require("./routes/enterExitPlanRoutes"))
 
 app.all("/*catch", (req, res) =>
 {

@@ -106,15 +106,14 @@ const lineHSchema = new mongoose.Schema({
 
 //planning schemas
 const enterExitLineSchema = new mongoose.Schema({
-  id: { type: Number },
   enterDate: { type: Date },
   enterPrice: { type: Number },
-  enterBufferPrice: { type: Number }, enterBufferPercent: { type: Number },
-  stopLossPrice: { type: Number }, stopLossPercent: { type: Number },
-  exitPrice: { type: Number }, exitPercent: { type: Number },
-  exitBufferPrice: { type: Number }, exitBufferPercent: { type: Number },
-  moonPrice: { type: Number }, moonPercent: { type: Number },
-  riskVRewardIdeal: { type: Number },
+  enterBufferPrice: { type: Number },
+  stopLossPrice: { type: Number },
+  exitPrice: { type: Number },
+  exitBufferPrice: { type: Number },
+  moonPrice: { type: Number },
+  percents: [Number],
   dateCreated: { type: Date }
 }, { _id: false })
 
@@ -147,7 +146,7 @@ const chartableStockSchema = new mongoose.Schema({
     // trianglesId: { type: Number, default: 1 },
     // wedges: [wedgeSchema],
     // wedgesId: { type: Number, default: 1 },
-    //enterExitLines: [enterExitLineSchema],
+    enterExitLines: enterExitLineSchema,
     //enterExitsId: { type: Number, default: 1 }
   },
   status: Number,

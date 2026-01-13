@@ -7,12 +7,13 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     plan: {
         enterBufferPrice: Number,
         enterPrice: Number,
-        stoplossPrice: Number,
+        stopLossPrice: Number,
         exitBufferPrice: Number,
         exitPrice: Number,
         moonPrice: Number,
         risk: Number,
-        reward: Number
+        reward: Number,
+        percents: [Number]
     },
     chartingId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
     dateAdded: { type: Date, default: new Date() },
