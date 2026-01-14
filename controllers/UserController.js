@@ -104,7 +104,10 @@ const fetchUsersConfirmedPatterns = asyncHandler(async (req, res) =>
 
 const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 {
-  const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol plan' }).lean().exec()
+  const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({
+    path: 'planAndTrackedStocks',
+    select: 'tickerSymbol plan priceHitSinceTracked'
+  }).lean().exec()
   let plansForSnapshots = []
   foundUser.planAndTrackedStocks.map((plan) => { plansForSnapshots.push(plan.tickerSymbol) })
 
