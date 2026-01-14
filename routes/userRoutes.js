@@ -24,4 +24,10 @@ router.route("/watchlist/:watchListId/edit")
 router.route("/watchlist/:watchListId/tickers")
     .post(WatchListController.addTickerToWatchList)
     .put(WatchListController.removeTickerFromWatchList);
+
+router.route("/enterExitPlans")
+    .get(UserController.fetchUserEnterExitPlans)
+
+
+
 module.exports = router;

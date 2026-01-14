@@ -13,9 +13,9 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         moonPrice: Number,
         risk: Number,
         reward: Number,
-        percents: [Number]
+        percents: [Number],
+        dateCreated: Date
     },
-    chartingId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
