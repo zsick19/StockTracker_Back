@@ -126,11 +126,12 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 
 
 
+
 module.exports = {
   userLoginDataFetch,
   fetchUserMacroWatchListsWithTickerData,
   createUserSavedMarketFilter,
   removeUserSavedMarketFilter,
   fetchUsersConfirmedPatterns,
-  fetchUserEnterExitPlans
+  fetchUserEnterExitPlans,
 };

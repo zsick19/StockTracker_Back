@@ -29,5 +29,4 @@ router.route("/enterExitPlans")
     .get(UserController.fetchUserEnterExitPlans)
 
 
-
 module.exports = router;

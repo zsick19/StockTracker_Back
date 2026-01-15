@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const StockHistory = require("./StockHistory");
+const TradeRecord = require("./TradeRecord");
 
 
 
@@ -23,6 +24,10 @@ const userSchema = new mongoose.Schema({
 
   unConfirmedPatterns: [{ type: String, default: [] }],
   userStockHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: 'StockHistory', default: [] }],
+  
+  activeTradeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TradeRecord', default: [] }],
+  previousTradeRecords: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TradeRecord', default: [] }]
 });
 
 module.exports = mongoose.model("User", userSchema);
+
