@@ -16,6 +16,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         percents: [Number],
         dateCreated: Date
     },
+    initialTrackingPrice: Number,
     priceHitSinceTracked: { type: Number, default: 0 },
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

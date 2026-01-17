@@ -11,8 +11,17 @@ const connectDB = require("./config/dbConnection");
 const corsConfigure = require("./config/corsConfig");
 const { logger, logEvents } = require("./middleware/logger");
 const authenticateToken = require("./middleware/authenticateToken");
+const amqp = require('amqplib')
 
 const PORT = process.env.PORT || 3500;
+
+const initiateTrackingQueueName = 'TickerUserTracking_initiateQueue'
+const updateTrackingQueueName = 'TickerUserTracking_updateQueue'
+
+let rabbitConnection = undefined
+let rabbitChannel = undefined
+
+
 
 connectDB();
 app.use(logger);
@@ -22,6 +31,8 @@ app.use(express.json());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+connectToRabbitMQ()
 
 app.use("/", express.static(path.join(__dirname, "/public")));
 
@@ -68,3 +79,21 @@ mongoose.connection.on("error", (err) =>
     "mongoErrLog.log"
   );
 });
+
+
+async function connectToRabbitMQ()
+{
+  try
+  {
+    rabbitConnection = await amqp.connect('amqp://127.0.0.1')
+    rabbitChannel = await rabbitConnection.createChannel()
+    await rabbitChannel.assertQueue(initiateTrackingQueueName, { durable: true })
+    await rabbitChannel.assertQueue(updateTrackingQueueName, { durable: true })
+    console.log('Producer connected To RabbitMQ')
+
+    app.locals.channel = rabbitChannel
+  } catch (error)
+  {
+    console.log('Error connecting to RabbitMQ', error)
+  }
+}

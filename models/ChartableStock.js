@@ -146,10 +146,10 @@ const chartableStockSchema = new mongoose.Schema({
     // trianglesId: { type: Number, default: 1 },
     // wedges: [wedgeSchema],
     // wedgesId: { type: Number, default: 1 },
-    enterExitLines: enterExitLineSchema,
+    enterExitLines: { type: enterExitLineSchema, default: {} },
     //enterExitsId: { type: Number, default: 1 }
   },
-  status: Number,
+  status: { type: Number, default: 0 },
   dateAdded: { type: Date, default: new Date() },
   chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
