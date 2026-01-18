@@ -5,13 +5,11 @@ const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
-const { sendRabbitMessage } = require('../config/rabbitMQService')
+const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 
-const initiateTrackingQueueName = 'TickerUserTracking_initiateQueue'
-const updateTrackingQueueName = 'TickerUserTracking_updateQueue'
 
 const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 {
@@ -47,14 +45,15 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
 
   let taskData = {
-    Symbol: foundChartableStock.tickerSymbol,
-    userId: foundUser._id,
-    trackToTradeId: createdEnterExitPlannedStock._id,
+    tickerSymbol: foundChartableStock.tickerSymbol,
+    userId: foundUser._id.toString(),
+    plannedTradeId: createdEnterExitPlannedStock._id.toString(),
     pricePoints: [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice],
-    tradeStatus: 0
+    tradeStatus: 0,  //does this need to be updated/set right here
+    purpose: 0
   }
 
-  sendRabbitMessage(req, res, initiateTrackingQueueName, taskData)
+  sendRabbitMessage(req, res, rabbitQueueNames.initiateTrackingQueueName, taskData)
 
 
 
@@ -78,8 +77,18 @@ const updateEnterExitPlan = asyncHandler(async (req, res) =>
   foundEnterExitPlan.plan = { ...foundEnterExitPlan.plan, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents }
   await foundEnterExitPlan.save()
 
+  let taskData = {
+    remove: false,
+    tickerSymbol: foundEnterExitPlan.tickerSymbol,
+    pricePoints: [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
+  }
+
+  sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
+
   res.json(foundEnterExitPlan)
 })
+
+
 
 const removeEnterExitPlan = asyncHandler(async (req, res) =>
 {

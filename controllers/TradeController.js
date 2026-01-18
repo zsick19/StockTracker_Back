@@ -6,11 +6,12 @@ const WatchList = require("../models/WatchList");
 const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const TradeRecord = require("../models/TradeRecord");
+const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
-const fetchUsersActiveTradesWithStream = asyncHandler(async (req, res) =>
+const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 {
   const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords').populate("activeTradeRecords")
   let foundTrades = [...foundUsersActiveTrades.activeTradeRecords]
@@ -30,6 +31,8 @@ const fetchUsersActiveTradesWithStream = asyncHandler(async (req, res) =>
   }
 
 })
+
+
 
 const createTradeRecord = asyncHandler(async (req, res) =>
 {
@@ -58,8 +61,20 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     foundUser.activeTradeRecords.push(createdTradeRecord)
     foundUser.previousTradeRecords.push(createdTradeRecord)
     await foundUser.save()
+
+    let taskData = {
+      action: 'enter',
+      tickerSymbol,
+      userId: foundUser._id.toString(),
+      tradeEnterPrice: purchasePrice
+    }
+
+    sendRabbitMessage(req, res, rabbitQueueNames.enterExitTradeQueue, taskData)
+
+
     res.json(createdTradeRecord)
-  } else res.status(500).json({ message: 'Error creating trade' })
+  } else
+    res.status(500).json({ message: 'Error creating trade' })
 
 })
 
@@ -68,10 +83,26 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
 
 })
 
+const exitTradeRecord = asyncHandler(async (req, res) =>
+{
+  // const {tickerSymbol}=req.params
+  // //if trade record is marked complete/no more shares
+
+  // let taskData = {
+  //   action: 'exit',
+  //   tickerSymbol,
+  //   userId: foundUser._id.toString(),
+  // }
+
+  // sendRabbitMessage(req, res, rabbitQueueNames.enterExitTradeQueue, taskData)
+
+
+})
 
 
 module.exports = {
-  fetchUsersActiveTradesWithStream,
+  fetchUsersActiveTrades,
   createTradeRecord,
-  alterTradeRecord
+  alterTradeRecord,
+  exitTradeRecord
 };

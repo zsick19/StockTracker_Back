@@ -5,10 +5,14 @@ const UserController = require("../controllers/UserController");
 const WatchListController = require("../controllers/WatchListController");
 
 router.route("/active")
-    .get(TradeController.fetchUsersActiveTradesWithStream)
+    .get(TradeController.fetchUsersActiveTrades)
 
 router.route('/enterPosition')
     .post(TradeController.createTradeRecord)
+
+
+router.route('/exitPosition')
+    .post(TradeController.exitTradeRecord)
 
 
 module.exports = router;

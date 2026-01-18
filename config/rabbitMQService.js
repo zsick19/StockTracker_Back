@@ -21,5 +21,6 @@ export const rabbitQueueNames = {
     updateTrackingQueueName: 'TickerUserTracking_updateQueue',
     userLoggingInQueueName: 'UserLoggedIn_Queue',
     singleGraphTickerQueue: 'SingleTicker_temporaryTradeQueue',
-    removeTempTickerQueue: 'removeTempTicker'
+    removeTempTickerQueue: 'removeTempTicker',
+    enterExitTradeQueue: 'enterExitTradeQueue'
 }

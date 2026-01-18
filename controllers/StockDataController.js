@@ -40,7 +40,6 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   }
 
 
-
   try
   {
     await retryOperation(async () =>
