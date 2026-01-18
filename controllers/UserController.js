@@ -5,6 +5,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
+const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -16,6 +17,11 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+
+
+  let taskData = { userId: foundUser._id }
+  sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
 
   res.json(foundUser);
 });

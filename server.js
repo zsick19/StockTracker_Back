@@ -11,7 +11,8 @@ const connectDB = require("./config/dbConnection");
 const corsConfigure = require("./config/corsConfig");
 const { logger, logEvents } = require("./middleware/logger");
 const authenticateToken = require("./middleware/authenticateToken");
-const amqp = require('amqplib')
+const amqp = require('amqplib');
+const { rabbitQueueNames } = require("./config/rabbitMQService");
 
 const PORT = process.env.PORT || 3500;
 
@@ -89,6 +90,7 @@ async function connectToRabbitMQ()
     rabbitChannel = await rabbitConnection.createChannel()
     await rabbitChannel.assertQueue(initiateTrackingQueueName, { durable: true })
     await rabbitChannel.assertQueue(updateTrackingQueueName, { durable: true })
+    await rabbitChannel.assertQueue(rabbitQueueNames.singleGraphTickerQueue, { durable: true })
     console.log('Producer connected To RabbitMQ')
 
     app.locals.channel = rabbitChannel

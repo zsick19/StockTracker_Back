@@ -7,6 +7,8 @@ const { ObjectId } = require("mongodb");
 const { startOfWeek, subDays, subBusinessDays } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 const Stock = require("../models/Stock");
+const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
+
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -38,6 +40,7 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   }
 
 
+
   try
   {
     await retryOperation(async () =>
@@ -46,8 +49,16 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
       const mostRecentPrice = await alpaca.getLatestTrade(ticker)
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
+
+      if (liveFeed === 'true')
+      {
+        let taskData = { userId: req.userId, tickerSymbol: ticker }
+        sendRabbitMessage(req, res, rabbitQueueNames.singleGraphTickerQueue, taskData)
+      }
+
       if (tickerInfoNeeded)
       {
+
         res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo })
       } else
       {

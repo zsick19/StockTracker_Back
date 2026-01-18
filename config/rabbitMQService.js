@@ -13,3 +13,13 @@ export const sendRabbitMessage = (req, res, queueName, taskData) =>
     channel.sendToQueue(queueName, Buffer.from(msg), { persistent: true })
     console.log(`Producer sent message:${msg}`)
 }
+
+export const rabbitQueueNames = {
+    loggedInEnterExitPlanQueue: 'enterExitWatchListPrice',
+    loggedInActiveTradeQueue: 'activeTradePrice',
+    initiateTrackingQueueName: 'TickerUserTracking_initiateQueue',
+    updateTrackingQueueName: 'TickerUserTracking_updateQueue',
+    userLoggingInQueueName: 'UserLoggedIn_Queue',
+    singleGraphTickerQueue: 'SingleTicker_temporaryTradeQueue',
+    removeTempTickerQueue: 'removeTempTicker'
+}
