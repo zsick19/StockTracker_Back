@@ -6,6 +6,7 @@ const { get } = require("mongoose");
 router.route("/:chartId")
     .get(ChartingController.fetchChartingAndKeyLevelData)
     .put(ChartingController.updateUserChartingPerChartId)
+    .delete(ChartingController.removeChartableStock)
 
 router.route("/keyLevels/macros")
     .get(ChartingController.fetchUsersMacroKeyLevelsDate)

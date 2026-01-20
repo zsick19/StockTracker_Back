@@ -55,14 +55,8 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
         sendRabbitMessage(req, res, rabbitQueueNames.singleGraphTickerQueue, taskData)
       }
 
-      if (tickerInfoNeeded)
-      {
-
-        res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo })
-      } else
-      {
-        res.json({ candleData, mostRecentPrice: mostRecentPrice })
-      }
+      if (tickerInfoNeeded) { res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo }) }
+      else { res.json({ candleData, mostRecentPrice: mostRecentPrice }) }
     })
   } catch (error)
   {
@@ -78,14 +72,48 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   const pageSize = req.query.pageSize
   const body = req.body
 
-  let results = await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } }, { $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }])
 
+  let filterResults = await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } },
+  {
+    $facet: {
+      count: [{ $count: "total" }],
+      data: [{ $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }]
+    }
+  }, { $unwind: "$count" }])
+
+  let stocksThatMatchFilterResults = filterResults[0]?.data
+
+  //await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } }, { $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }])
   function matchGenerator(body) { if (Object.keys(body).length === 0) { return { "$match": {} } } else { return { "$match": body } } }
 
-  res.json({
-    results,
-    totalResults: 50
-  })
+
+  let tickersForStockData = stocksThatMatchFilterResults.map((stock) => stock.Symbol)
+  if (tickersForStockData.length === 0) return res.json({ stocksThatMatchFilterResults, totalResults: 0 })
+
+
+  try
+  {
+    await retryOperation(async () =>
+    {
+      let options = { timeframe: '1D', start: subDays(new Date(), 180).toISOString().slice(0, 10) };
+
+      const tickerData = await alpaca.getMultiBarsV2(tickersForStockData, options)
+      const candleData = {}
+      for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
+
+      stocksThatMatchFilterResults.forEach((stock) => { stock.candleData = candleData[stock.Symbol] })
+
+      res.json({ results: stocksThatMatchFilterResults, totalResults: filterResults[0]?.count.total })
+    })
+  } catch (error)
+  {
+    console.error("Error fetching candle data for market search", error)
+    res.json({ message: 'Error fetching candle data' })
+  }
+
+
+
+
 })
 
 module.exports = {

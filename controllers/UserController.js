@@ -114,13 +114,19 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
     path: 'planAndTrackedStocks',
     select: 'tickerSymbol plan priceHitSinceTracked initialTrackingPrice'
   }).lean().exec()
-  let plansForSnapshots = []
-  foundUser.planAndTrackedStocks.map((plan) => { plansForSnapshots.push(plan.tickerSymbol) })
+
+  let plansForSnapshots = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
 
   try
   {
-    const mostRecentPrice = await alpaca.getSnapshots(plansForSnapshots)
-    res.json({ plans: foundUser.planAndTrackedStocks, mostRecentPrice })
+    if (plansForSnapshots.length > 0)
+    {
+      const mostRecentPrice = await alpaca.getSnapshots(plansForSnapshots)
+      res.json({ plans: foundUser.planAndTrackedStocks, mostRecentPrice })
+    } else
+    {
+      res.json({ plans: [], mostRecentPrice: [] })
+    }
 
   } catch (error)
   {

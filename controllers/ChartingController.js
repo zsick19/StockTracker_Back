@@ -1,6 +1,8 @@
 const ChartableStock = require("../models/ChartableStock");
 const asyncHandler = require("express-async-handler");
 const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
+const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
+const User = require("../models/User");
 
 const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
@@ -20,7 +22,36 @@ const updateUserChartingPerChartId = asyncHandler(async (req, res) =>
   res.json(chartingUpdate)
 })
 
+const removeChartableStock = asyncHandler(async (req, res) =>
+{
+  const { chartId } = req.params
+  if (!chartId) return res.status(400).json({ message: 'Missing required information' })
 
+  const removeChartResult = await ChartableStock.findByIdAndDelete(chartId)
+  const removePossibleEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(chartId)
+
+  const foundUser = await User.findById(removeChartResult.chartedBy)
+  foundUser.confirmedStocks = foundUser.confirmedStocks.filter(t => t.toString() !== removeChartResult._id)
+  foundUser.markModified('confirmedStocks')
+
+
+  console.log(removePossibleEnterExitPlan)
+  if (removePossibleEnterExitPlan)
+  {
+    foundUser.planAndTrackedStocks = foundUser.planAndTrackedStocks.filter(t => t.toString() !== removePossibleEnterExitPlan._id)
+    foundUser.markModified('planAndTrackedStocks')
+
+    let taskData = {
+      remove: true,
+      tickerSymbol: removePossibleEnterExitPlan.tickerSymbol,
+      userId: req.userId
+    }
+    sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
+  }
+  await foundUser.save()
+
+  res.send({ removedChart: removeChartResult, removedEnterExit: removePossibleEnterExitPlan })
+})
 
 
 const fetchKeyLevelsData = asyncHandler(async (req, res) =>
@@ -133,5 +164,6 @@ module.exports = {
   fetchKeyLevelsData,
   updateKeyLevelData,
   fetchUsersMacroKeyLevelsDate,
-  updateUsersMacroKeyLevelData
+  updateUsersMacroKeyLevelData,
+  removeChartableStock
 };
