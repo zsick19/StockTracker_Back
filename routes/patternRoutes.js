@@ -15,6 +15,8 @@ router.route("/unconfirmed/sync")
 router.route("/confirmed")
     .get(UserController.fetchUsersConfirmedPatterns)
 
+router.route("/directConfirmed")
+    .get(PatternController.addConfirmedTickerDirectlyToUser)
 router.route("/found/:historyId")
     .delete(PatternController.removePatternedStockFromUser)
 

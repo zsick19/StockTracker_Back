@@ -77,13 +77,12 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   {
     $facet: {
       count: [{ $count: "total" }],
-      data: [{ $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }]
+      data: [{ $skip: (pageSize * (page - 1)) }, { $limit: parseInt(pageSize) }]
     }
   }, { $unwind: "$count" }])
 
-  let stocksThatMatchFilterResults = filterResults[0]?.data
 
-  //await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } }, { $skip: (pageSize * page) }, { $limit: parseInt(pageSize) }])
+  let stocksThatMatchFilterResults = filterResults[0]?.data
   function matchGenerator(body) { if (Object.keys(body).length === 0) { return { "$match": {} } } else { return { "$match": body } } }
 
 
@@ -101,7 +100,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
       const candleData = {}
       for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
 
-      stocksThatMatchFilterResults.forEach((stock) => { stock.candleData = candleData[stock.Symbol] })
+      stocksThatMatchFilterResults.forEach((stock) => { stock.candleData = candleData[stock.Symbol] || undefined })
 
       res.json({ results: stocksThatMatchFilterResults, totalResults: filterResults[0]?.count.total })
     })

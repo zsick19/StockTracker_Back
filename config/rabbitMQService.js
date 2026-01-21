@@ -1,7 +1,7 @@
 export const sendRabbitMessage = (req, res, queueName, taskData) =>
 {
     const channel = req.app.locals.channel
-    if (!channel) return res.status(500).send('RabbitMQ channel not available')
+    if (!channel) return
 
     const task = {
         id: Math.floor(Math.random() * 1000),

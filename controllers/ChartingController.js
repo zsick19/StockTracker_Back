@@ -3,12 +3,15 @@ const asyncHandler = require("express-async-handler");
 const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 const User = require("../models/User");
+const StockHistory = require("../models/StockHistory");
 
 const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params;
+  if (!chartId) return res.status(400).json({ message: 'Missing Required Information' })
   const foundChartableStock = await ChartableStock.findById(chartId).populate('plannedId');
-
+  if (!foundChartableStock) return res.status(404).json({ message: 'Chart does not exist.' })
+  console.log(foundChartableStock)
   res.json(foundChartableStock)
 });
 
@@ -27,30 +30,38 @@ const removeChartableStock = asyncHandler(async (req, res) =>
   const { chartId } = req.params
   if (!chartId) return res.status(400).json({ message: 'Missing required information' })
 
+  //remove the charting
   const removeChartResult = await ChartableStock.findByIdAndDelete(chartId)
-  const removePossibleEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(chartId)
+  if (!removeChartResult) return res.status(500).json({ message: 'Error removing chart and/or plan.' })
 
+  //find user and filter out the chartId
   const foundUser = await User.findById(removeChartResult.chartedBy)
   foundUser.confirmedStocks = foundUser.confirmedStocks.filter(t => t.toString() !== removeChartResult._id)
   foundUser.markModified('confirmedStocks')
 
+  //remove the history from the user
+  const foundUserHistory = await StockHistory.findOneAndDelete({ symbol: removeChartResult.tickerSymbol, userId: foundUser._id })
+  if (foundUserHistory)
+  {
+    let stringIdForRemoval = foundUserHistory._id.toString()
+    foundUser.userStockHistory = foundUser.userStockHistory.filter(t => t.toString() !== stringIdForRemoval)
+    foundUser.markModified('userStockHistory')
+  }
 
-  console.log(removePossibleEnterExitPlan)
+  //if there exists a plan, remove the plan and send message to stock tracker to remove tracking
+  const removePossibleEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(chartId)
   if (removePossibleEnterExitPlan)
   {
-    foundUser.planAndTrackedStocks = foundUser.planAndTrackedStocks.filter(t => t.toString() !== removePossibleEnterExitPlan._id)
+    let stringIdForRemoval = removePossibleEnterExitPlan._id.toString()
+    foundUser.planAndTrackedStocks = foundUser.planAndTrackedStocks.filter(t => t.toString() !== stringIdForRemoval)
     foundUser.markModified('planAndTrackedStocks')
-
-    let taskData = {
-      remove: true,
-      tickerSymbol: removePossibleEnterExitPlan.tickerSymbol,
-      userId: req.userId
-    }
+    let taskData = { remove: true, tickerSymbol: removePossibleEnterExitPlan.tickerSymbol, userId: req.userId }
     sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
   }
-  await foundUser.save()
 
-  res.send({ removedChart: removeChartResult, removedEnterExit: removePossibleEnterExitPlan })
+  //save changes to any user and respond with deleted chart/plan
+  await foundUser.save()
+  res.send({ removedChart: removeChartResult, removedEnterExit: removePossibleEnterExitPlan, removedHistory: foundUserHistory })
 })
 
 

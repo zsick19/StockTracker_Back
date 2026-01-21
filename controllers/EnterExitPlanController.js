@@ -21,7 +21,10 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
   const foundChartableStock = await ChartableStock.findById(req.params.chartId)
   if (!foundChartableStock) return res.status(404).json({ message: 'Chart Not Found' })
 
+
   const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
+
+
 
 
   const createdEnterExitPlannedStock = await EnterExitPlannedStock.create({
@@ -30,11 +33,13 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     sector: foundChartableStock.sector,
     plan: { enterPrice, enterBufferPrice, stopLossPrice, exitBufferPrice, exitPrice, moonPrice, percents, dateCreated },
     initialTrackingPrice: latestTradePrice?.Price || undefined,
+    priceHitSinceTracked: 0,
     chartedBy: foundUser._id
   })
 
   if (createdEnterExitPlannedStock)
   {
+    foundChartableStock.status = 2
     foundChartableStock.plannedId = createdEnterExitPlannedStock._id
     await foundChartableStock.save()
 
@@ -42,15 +47,20 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     await foundUser.save()
   }
 
-
+  let pricePlan = [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
+  function getInsertionIndexLinear(arr, num)
+  {
+    for (let i = 0; i < 6; i++) { if (arr[i] >= num) { return i; } }
+    return 6;
+  }
 
   let taskData = {
     tickerSymbol: foundChartableStock.tickerSymbol,
     userId: foundUser._id.toString(),
     plannedTradeId: createdEnterExitPlannedStock._id.toString(),
-    pricePoints: [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice],
-    tradeStatus: 0,  //does this need to be updated/set right here
-    purpose: 0
+    pricePoints: pricePlan,
+    tradeStatus: getInsertionIndexLinear(pricePlan, latestTradePrice.Price),  //does this need to be updated/set right here
+    purpose: 0 //watchlist vs tracking stock
   }
 
   sendRabbitMessage(req, res, rabbitQueueNames.initiateTrackingQueueName, taskData)

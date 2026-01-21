@@ -4,6 +4,13 @@ const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const { ObjectId } = require("mongodb");
 
+const Alpaca = require('@alpacahq/alpaca-trade-api')
+
+const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
+
+
+
+
 const addPatternedStockToUser = asyncHandler(async (req, res) =>
 {
   const ticker = req.query.patternToAdd
@@ -63,6 +70,8 @@ const fetchUsersUnconfirmedPatterns = asyncHandler(async (req, res) =>
   res.json(foundUser.unConfirmedPatterns)
 })
 
+
+
 const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
 {
   const { confirmed, remove } = req.body
@@ -101,7 +110,7 @@ const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
 
     //filter the user's list of stock history for the newly deleted Ids
     if (results) foundUser.userStockHistory = foundUser.userStockHistory.filter(t => stockHistoryIdForDeletion.indexOf(t._id) === -1)
-    }
+  }
 
 
   foundUser.unConfirmedPatterns = unconfirmedCopySet
@@ -112,11 +121,57 @@ const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
 
   res.json(foundUser)
 })
+const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
+{
+  const tickerToAdd = req.query.tickerToAdd
+  if (!tickerToAdd || tickerToAdd === '') return res.status(400).json({ message: 'Missing required information.' })
 
+  try
+  {
+    await alpaca.getLatestTrade(tickerToAdd)
+  } catch (error)
+  {
+    return res.status(400).json({ message: 'Ticker is not valid' })
+  }
+
+
+  const checkForPatterDuplicate = await ChartableStock.findOne({ tickerSymbol: tickerToAdd, chartedBy: req.userId })
+  if (checkForPatterDuplicate) return res.status(400).json({ message: 'Stock Chart Already Exists for this user' })
+
+  const foundUser = await User.findById(req.userId).populate('userStockHistory')
+  if (!foundUser) return res.status(404).json({ message: 'Data Not Found' })
+
+  const directConfirmed = await ChartableStock.create({ tickerSymbol: tickerToAdd, chartedBy: foundUser._id, status: -1 })
+  foundUser.confirmedStocks = foundUser.confirmedStocks.concat(directConfirmed)
+  foundUser.unConfirmedPatterns = foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
+
+  let possibleHistoryUpdateId = undefined
+  foundUser.userStockHistory.forEach((history) =>
+  {
+    if (tickerToAdd === history.symbol)
+    {
+      possibleHistoryUpdateId = history._id
+      return
+    }
+  })
+
+  if (possibleHistoryUpdateId)
+  {
+    await StockHistory.updateOne({ _id: { $in: possibleHistoryUpdateId } }, { $push: { "history": { action: 'confirmed', date: new Date() } } })
+  } else
+  {
+    const createdHistory = await StockHistory.create({ symbol: tickerToAdd, userId: req.userId, history: [{ action: 'confirmed', date: new Date() }] })
+    foundUser.userStockHistory.push(createdHistory)
+  }
+
+  await foundUser.save()
+  res.json({ directConfirmed, userHistory: foundUser.userStockHistory })
+})
 
 module.exports = {
   addPatternedStockToUser,
   removePatternedStockFromUser,
   fetchUsersUnconfirmedPatterns,
+  addConfirmedTickerDirectlyToUser,
   syncConfirmRemovePatterns
 };
