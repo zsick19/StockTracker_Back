@@ -94,7 +94,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   {
     await retryOperation(async () =>
     {
-      let options = { timeframe: '1D', start: subDays(new Date(), 180).toISOString().slice(0, 10) };
+      let options = { timeframe: '1D', start: subDays(new Date(), 2).toISOString().slice(0, 10) };
 
       const tickerData = await alpaca.getMultiBarsV2(tickersForStockData, options)
       const candleData = {}
@@ -115,7 +115,33 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
 
 })
 
+const fetchGroupedStockData = asyncHandler(async (req, res) =>
+{
+  const { tickerGroup } = req.body
+  if (!tickerGroup) return res.status(400).json({ message: 'Missing required information' })
+
+  try
+  {
+    await retryOperation(async () =>
+    {
+
+      let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: subDays(new Date(), 5).toISOString().slice(0, 10) };
+      const tickerData = await alpaca.getMultiBarsV2(tickerGroup, options)
+
+      let results = []
+      for await (let singleStock of tickerData) { results.push({ ticker: singleStock[0], candleData: singleStock[1] }) }
+
+      res.json(results)
+    })
+  } catch (error)
+  {
+    res.status(500).json({ message: 'Error Fetching Ticker Data' })
+
+  }
+})
+
 module.exports = {
   stockDataFetchWithLiveFeed,
-  fetchMarketSearchStockData
+  fetchMarketSearchStockData,
+  fetchGroupedStockData
 };

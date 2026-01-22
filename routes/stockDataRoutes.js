@@ -5,6 +5,9 @@ const StockDataController = require("../controllers/StockDataController");
 router.route("/ticker/:ticker")
     .post(StockDataController.stockDataFetchWithLiveFeed)
 
+router.route("/tickerGroup")
+    .post(StockDataController.fetchGroupedStockData)
+    
 router.route('/marketSearch')
     .post(StockDataController.fetchMarketSearchStockData)
 

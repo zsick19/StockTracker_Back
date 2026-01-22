@@ -11,7 +11,7 @@ const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
   if (!chartId) return res.status(400).json({ message: 'Missing Required Information' })
   const foundChartableStock = await ChartableStock.findById(chartId).populate('plannedId');
   if (!foundChartableStock) return res.status(404).json({ message: 'Chart does not exist.' })
-  console.log(foundChartableStock)
+
   res.json(foundChartableStock)
 });
 
