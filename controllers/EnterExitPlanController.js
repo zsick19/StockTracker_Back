@@ -105,9 +105,51 @@ const removeEnterExitPlan = asyncHandler(async (req, res) =>
   res.json({ m: 'connected' })
 })
 
+const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>
+{
+  const { removeThesePlans, removeTheseTickers, removeHistory } = req.body
+
+  if (!removeThesePlans || !removeTheseTickers || !removeHistory) return res.status(400).json({ message: 'Missing required information.' })
+
+  const foundUser = await User.findById(req.userId)
+
+  //remove the charting
+  const removeChartResult = await ChartableStock.deleteMany({ _id: { $in: removeThesePlans } })
+  const removeEnterExitPlan = await EnterExitPlannedStock.deleteMany({ _id: { $in: removeThesePlans } })
+  const historyRemoved = await StockHistory.deleteMany({ _id: { $in: removeHistory } })
+
+  //find user and filter out the chartId 
+  const setForRemoval = new Set(removeThesePlans)
+  let stringVersionOfConfirmed = foundUser.confirmedStocks.map((t) => t.toString())
+  let stringVersionOfPlans = foundUser.planAndTrackedStocks.map((t) => t.toString())
+  let stringVersionOfHistory = foundUser.userStockHistory.map((t) => t.toString())
+
+  foundUser.confirmedStocks = Array.from(new Set(stringVersionOfConfirmed).symmetricDifference(setForRemoval))
+  foundUser.planAndTrackedStocks = Array.from(new Set(stringVersionOfPlans).symmetricDifference(setForRemoval))
+  foundUser.userStockHistory = Array.from(new Set(stringVersionOfHistory).symmetricDifference(new Set(removeHistory)))
+
+  foundUser.markModified('planAndTrackedStocks')
+  foundUser.markModified('confirmedStocks')
+  foundUser.markModified('userStockHistory')
+
+
+
+
+  // //if there exists a plan, remove the plan and send message to stock tracker to remove tracking
+  // let taskData = { remove: true, tickerSymbol: removePossibleEnterExitPlan.tickerSymbol, userId: req.userId }
+  // sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
+
+
+
+  await foundUser.save()
+  res.json({ removeChartResult, removeEnterExitPlan, historyRemoved, removeTheseTickers })
+
+
+})
 
 module.exports = {
   initiateEnterExitPlan,
   updateEnterExitPlan,
-  removeEnterExitPlan
+  removeEnterExitPlan,
+  removeGroupEnterExitPlan
 };

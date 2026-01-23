@@ -14,5 +14,6 @@ router.route('/enterPosition')
 router.route('/exitPosition')
     .post(TradeController.exitTradeRecord)
 
-
+router.route("/journal")
+    .get(TradeController.fetchUsersTradeJournal)
 module.exports = router;

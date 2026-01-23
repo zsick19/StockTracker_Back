@@ -11,4 +11,7 @@ router.route("/initiate/:chartId")
 router.route("/update/:enterExitId")
     .put(EnterExitPlanController.updateEnterExitPlan)
 
+router.route("/viability")
+    .delete(EnterExitPlanController.removeGroupEnterExitPlan)
+
 module.exports = router;

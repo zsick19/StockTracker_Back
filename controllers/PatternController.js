@@ -77,23 +77,27 @@ const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
   const { confirmed, remove } = req.body
   const foundUser = await User.findById(req.userId).populate('userStockHistory')
 
-
   let unconfirmedCopySet = foundUser.unConfirmedPatterns
 
   if (confirmed.length > 0)
   {
     //create new confirmed stocks/chartable stocks and add to user object
-    let confirmToBeCreated = confirmed.map((ticker) => { return { tickerSymbol: ticker, chartedBy: foundUser._id } })
+    let tickerSymbolsForConfirmed = []
+    let confirmToBeCreated = confirmed.map((ticker) =>
+    {
+      tickerSymbolsForConfirmed.push(ticker.ticker)
+      return { tickerSymbol: ticker.ticker, sector: ticker.sector, chartedBy: foundUser._id }
+    })
     let results = await ChartableStock.insertMany(confirmToBeCreated)
     foundUser.confirmedStocks = foundUser.confirmedStocks.concat(results)
 
     //remove these confirmed tickers from the users unConfirmedPattern list
-    unconfirmedCopySet = foundUser.unConfirmedPatterns.filter((t) => confirmed.indexOf(t) === -1)
+    unconfirmedCopySet = foundUser.unConfirmedPatterns.filter((t) => tickerSymbolsForConfirmed.indexOf(t) === -1)
 
     //update the user's stock history to reflect being confirmed
     let date = new Date()
     let stockHistoryIdForUpdate = []
-    foundUser.userStockHistory.map((history) => { if (confirmed.includes(history.symbol)) { stockHistoryIdForUpdate.push(history._id) } })
+    foundUser.userStockHistory.map((history) => { if (tickerSymbolsForConfirmed.includes(history.symbol)) { stockHistoryIdForUpdate.push(history._id) } })
     await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $push: { "history": { action: 'confirmed', date } } })
   }
 
