@@ -32,6 +32,13 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 
 })
 
+const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
+{
+  const foundUsersPreviousTrades = await User.findById(req.userId).select('previousTradeRecords').populate('previousTradeRecords')
+  console.log(foundUsersPreviousTrades)
+  if (!foundUsersPreviousTrades) return res.status(404).json({ message: 'User not found.' })
+  res.json(foundUsersPreviousTrades.previousTradeRecords)
+})
 
 
 const createTradeRecord = asyncHandler(async (req, res) =>
@@ -59,7 +66,6 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   if (createdTradeRecord)
   {
     foundUser.activeTradeRecords.push(createdTradeRecord)
-    foundUser.previousTradeRecords.push(createdTradeRecord)
     await foundUser.save()
 
     let taskData = {
@@ -97,14 +103,6 @@ const exitTradeRecord = asyncHandler(async (req, res) =>
   // sendRabbitMessage(req, res, rabbitQueueNames.enterExitTradeQueue, taskData)
 })
 
-const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
-{
-  const foundUsersPreviousTrades=await User.findById(req.userId).select('previousTradeRecords').populate('previousTradeRecords')
-  if(!foundUsersPreviousTrades) return res.status(404).json({message:'User not found.'})
-
-
-  res.json(foundUsersPreviousTrades)
-})
 
 
 module.exports = {

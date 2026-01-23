@@ -115,7 +115,7 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({
     path: 'planAndTrackedStocks',
-    select: 'tickerSymbol plan priceHitSinceTracked initialTrackingPrice dateAdded'
+    select: 'tickerSymbol plan sector priceHitSinceTracked initialTrackingPrice dateAdded'
   }).lean().exec()
 
   let plansForSnapshots = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
