@@ -18,6 +18,7 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   const { timeFrame } = req.body
   const liveFeed = req.query.liveFeed;
   const tickerInfoNeeded = req.query.info;
+  const provideNews = req.query.provideNews;
 
   if (!ticker || !timeFrame) return res.status(400).send('Missing Request Information')
 
@@ -44,19 +45,23 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   {
     await retryOperation(async () =>
     {
+      let mostRecentPrice = undefined
+      let newsPerTicker = undefined
       const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start, end });
-      const mostRecentPrice = await alpaca.getLatestTrade(ticker)
+      mostRecentPrice = await alpaca.getLatestTrade(ticker)
+
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
 
+      if (provideNews) { newsPerTicker = await alpaca.getNews({ symbols: [ticker] }) }
       if (liveFeed === 'true')
       {
         let taskData = { userId: req.userId, tickerSymbol: ticker }
         sendRabbitMessage(req, res, rabbitQueueNames.singleGraphTickerQueue, taskData)
       }
 
-      if (tickerInfoNeeded) { res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo }) }
-      else { res.json({ candleData, mostRecentPrice: mostRecentPrice }) }
+      res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo: tickerInfo, news: newsPerTicker })
+      // if (tickerInfoNeeded) { res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo }) }
     })
   } catch (error)
   {
@@ -94,7 +99,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   {
     await retryOperation(async () =>
     {
-      let options = { timeframe: '1D', start: subDays(new Date(), 2).toISOString().slice(0, 10) };
+      let options = { timeframe: '1D', start: subDays(new Date(), 180).toISOString().slice(0, 10) };
 
       const tickerData = await alpaca.getMultiBarsV2(tickersForStockData, options)
       const candleData = {}
@@ -114,6 +119,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
 
 
 })
+
 
 const fetchGroupedStockData = asyncHandler(async (req, res) =>
 {
@@ -139,6 +145,8 @@ const fetchGroupedStockData = asyncHandler(async (req, res) =>
 
   }
 })
+
+
 
 module.exports = {
   stockDataFetchWithLiveFeed,

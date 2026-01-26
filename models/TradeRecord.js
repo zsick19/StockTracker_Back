@@ -4,7 +4,7 @@ const mongoose = require('mongoose')
 const purchaseSchema = new mongoose.Schema({
     purchasePrice: { type: Number },
     positionSize: { type: Number },
-    purchaseDate: { type: Date, default:new Date() },
+    purchaseDate: { type: Date, default: new Date() },
 }, { _id: false })
 
 const sellSchema = new mongoose.Schema({
@@ -29,10 +29,12 @@ const tradeRecordSchema = new mongoose.Schema({
     averagePurchasePrice: { type: Number },
     averageSellPrice: { type: Number },
 
-    exitGain: { type: Number },
+    enterDate: { type: Date, default: new Date() },
     exitDate: { type: Date },
-    exitPercentCapture: { type: Number },
 
+    exitGain: { type: Number },//exit price times total shares sold
+    exitGainPercent: { type: Number }, //enter price gain
+    exitMovePercent: Number, //how much of the move did we capture
     tradeComplete: { type: Boolean, default: false }
 })
 
