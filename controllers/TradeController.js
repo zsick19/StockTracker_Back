@@ -43,17 +43,18 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 
 const createTradeRecord = asyncHandler(async (req, res) =>
 {
-  const { tickerSymbol, positionSize, purchasePrice, tradingPlanPrices, enterExitPlanId } = req.body
+  const { tickerSymbol, tickerSector, positionSize, purchasePrice, tradingPlanPrices, enterExitPlanId } = req.body
+  console.log(req.body)
 
   if (!tickerSymbol || !positionSize || !purchasePrice || !tradingPlanPrices || !enterExitPlanId) return res.status(400).json({ message: 'Missing Required Information' })
 
   const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
-  if (foundTradeRecord && !foundTradeRecord.tradeComplete) return res.status(400).json({ message: 'Can not initiate a still open trade record.' })
+  if (foundTradeRecord && !foundTradeRecord?.tradeComplete) return res.status(400).json({ message: 'Can not initiate a still open trade record.' })
 
   const foundUser = await User.findById(req.userId)
-
   const createdTradeRecord = await TradeRecord.create({
     tickerSymbol,
+    sector: tickerSector,
     tradingPlanPrices,
     enterExitPlanId,
     userId: foundUser._id,
@@ -63,9 +64,11 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     averagePurchasePrice: purchasePrice,
   })
 
+
   if (createdTradeRecord)
   {
     foundUser.activeTradeRecords.push(createdTradeRecord)
+    foundUser.planAndTrackedStocks.pull(enterExitPlanId)
     await foundUser.save()
 
     let taskData = {
@@ -86,7 +89,54 @@ const createTradeRecord = asyncHandler(async (req, res) =>
 
 const alterTradeRecord = asyncHandler(async (req, res) =>
 {
+  const { action, tickerSymbol, tradeId, tradePrice, positionSizeOfAlter } = req.body
 
+  if (!action || !tickerSymbol || !tradeId || !tradePrice || !positionSizeOfAlter) return res.status(400).json({ message: 'Missing required information.' })
+  const foundTradeRecord = await TradeRecord.findById(tradeId)
+  if (!foundTradeRecord) return res.status(404).json({ message: 'Trade Record not found.' })
+
+  const today = new Date()
+  switch (action)
+  {
+    case 'closeAll':
+      const foundUser = await User.findById(req.userId)
+      if (!foundUser) return res.status(404).json({ message: 'User Not Founds' })
+
+      let positionSizeToClose = positionSizeOfAlter
+      if (positionSizeOfAlter > foundTradeRecord.availableShares) positionSizeToClose = foundTradeRecord.availableShares
+      foundTradeRecord.sellRecords.push({ sellPrice: tradePrice, positionSize: positionSizeToClose, sellDate: today })
+      let averageSellPrice = 0
+      let totalSellRecords = 0
+      foundTradeRecord.sellRecords.forEach((record) =>
+      {
+        averageSellPrice = averageSellPrice + record.sellPrice
+        totalSellRecords = totalSellRecords + 1
+      })
+      foundTradeRecord.averageSellPrice = averageSellPrice / totalSellRecords
+      foundTradeRecord.availableShares = foundTradeRecord.availableShares - positionSizeToClose
+
+      if (foundTradeRecord.availableShares === 0)
+      {
+        foundTradeRecord.exitDate = today
+        foundTradeRecord.tradeComplete = true
+
+        foundUser.activeTradeRecords.pull(foundTradeRecord)
+        foundUser.previousTradeRecords.push(foundTradeRecord)
+        await foundUser.save()
+      }
+      break;
+    case 'partialSell':
+
+      break;
+    case 'additionalBuy':
+
+      break;
+  }
+
+  await foundTradeRecord.save()
+  console.log(req.body)
+
+  res.json(foundTradeRecord)
 })
 
 const exitTradeRecord = asyncHandler(async (req, res) =>

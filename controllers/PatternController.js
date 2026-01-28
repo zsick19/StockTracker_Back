@@ -136,12 +136,15 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
   {
     await alpaca.getLatestTrade(tickerToAdd)
     const tickerStockInfo = await Stock.find({ Symbol: tickerToAdd })
+
     if (!tickerStockInfo) throw new Error()
 
     const directConfirmed = await ChartableStock.create({ tickerSymbol: tickerToAdd, sector: tickerStockInfo.Sector, chartedBy: foundUser._id, status: -1 })
 
-    foundUser.unConfirmedPatterns = foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
-    foundUser.confirmedStocks = foundUser.confirmedStocks.push(directConfirmed)
+    foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
+    foundUser.markModified('unConfirmedPatterns')
+    foundUser.confirmedStocks.push(directConfirmed._id)
+    foundUser.markModified('confirmedStocks')
 
     let possibleHistoryUpdateId = undefined
     foundUser.userStockHistory.forEach((history) =>
@@ -160,6 +163,7 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
     {
       const createdHistory = await StockHistory.create({ symbol: tickerToAdd, userId: req.userId, history: [{ action: 'confirmed', date: new Date() }] })
       foundUser.userStockHistory.push(createdHistory)
+      foundUser.markModified('userStockHistory')
     }
 
     await foundUser.save()

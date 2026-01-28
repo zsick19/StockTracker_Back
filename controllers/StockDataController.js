@@ -16,7 +16,7 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
 {
   const { ticker } = req.params;
   const { timeFrame } = req.body
-  const liveFeed = req.query.liveFeed;
+  const liveFeed = req.query.liveFeed === 'true';
   const tickerInfoNeeded = req.query.info;
   const provideNews = req.query.provideNews;
 
@@ -49,19 +49,20 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
       let newsPerTicker = undefined
       const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start, end });
       mostRecentPrice = await alpaca.getLatestTrade(ticker)
-
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
 
+
+
       if (provideNews) { newsPerTicker = await alpaca.getNews({ symbols: [ticker] }) }
-      if (liveFeed === 'true')
+
+      if (liveFeed)
       {
         let taskData = { userId: req.userId, tickerSymbol: ticker }
         sendRabbitMessage(req, res, rabbitQueueNames.singleGraphTickerQueue, taskData)
       }
 
       res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo: tickerInfo, news: newsPerTicker })
-      // if (tickerInfoNeeded) { res.json({ candleData, mostRecentPrice: mostRecentPrice, tickerInfo }) }
     })
   } catch (error)
   {
@@ -78,7 +79,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   const body = req.body
 
 
-  let filterResults = await Stock.aggregate([matchGenerator(body), { $project: { _id: 0 } },
+  let filterResults = await Stock.aggregate([matchGenerator(body), { $sort: { Symbol: 1 } }, { $project: { _id: 0 } },
   {
     $facet: {
       count: [{ $count: "total" }],
@@ -114,10 +115,6 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
     console.error("Error fetching candle data for market search", error)
     res.json({ message: 'Error fetching candle data' })
   }
-
-
-
-
 })
 
 

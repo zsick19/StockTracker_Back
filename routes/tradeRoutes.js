@@ -10,6 +10,8 @@ router.route("/active")
 router.route('/enterPosition')
     .post(TradeController.createTradeRecord)
 
+router.route('/alter')
+    .put(TradeController.alterTradeRecord)
 
 router.route('/exitPosition')
     .post(TradeController.exitTradeRecord)
