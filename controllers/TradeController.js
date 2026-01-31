@@ -44,8 +44,6 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 const createTradeRecord = asyncHandler(async (req, res) =>
 {
   const { tickerSymbol, tickerSector, positionSize, purchasePrice, tradingPlanPrices, enterExitPlanId } = req.body
-  console.log(req.body)
-
   if (!tickerSymbol || !positionSize || !purchasePrice || !tradingPlanPrices || !enterExitPlanId) return res.status(400).json({ message: 'Missing Required Information' })
 
   const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
@@ -71,20 +69,12 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     foundUser.planAndTrackedStocks.pull(enterExitPlanId)
     await foundUser.save()
 
-    let taskData = {
-      action: 'enter',
-      tickerSymbol,
-      userId: foundUser._id.toString(),
-      tradeEnterPrice: purchasePrice
-    }
-
+    let taskData = { action: 'enter', tickerSymbol, userId: foundUser._id.toString(), tradeEnterPrice: purchasePrice }
     sendRabbitMessage(req, res, rabbitQueueNames.enterExitTradeQueue, taskData)
-
 
     res.json(createdTradeRecord)
   } else
     res.status(500).json({ message: 'Error creating trade' })
-
 })
 
 const alterTradeRecord = asyncHandler(async (req, res) =>
@@ -134,23 +124,7 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
   }
 
   await foundTradeRecord.save()
-  console.log(req.body)
-
   res.json(foundTradeRecord)
-})
-
-const exitTradeRecord = asyncHandler(async (req, res) =>
-{
-  // const {tickerSymbol}=req.params
-  // //if trade record is marked complete/no more shares
-
-  // let taskData = {
-  //   action: 'exit',
-  //   tickerSymbol,
-  //   userId: foundUser._id.toString(),
-  // }
-
-  // sendRabbitMessage(req, res, rabbitQueueNames.enterExitTradeQueue, taskData)
 })
 
 
@@ -159,6 +133,5 @@ module.exports = {
   fetchUsersActiveTrades,
   createTradeRecord,
   alterTradeRecord,
-  exitTradeRecord,
   fetchUsersTradeJournal
 };

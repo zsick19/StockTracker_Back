@@ -6,6 +6,8 @@ const WatchList = require("../models/WatchList");
 const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
+const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
+const TradeRecord = require("../models/TradeRecord");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -139,7 +141,23 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 
 })
 
+const resetUser = asyncHandler(async (req, res) =>
+{
+  const foundUser = await User.findById(req.userId)
+  foundUser.userStockHistory = []
+  foundUser.unConfirmedPatterns = []
+  foundUser.confirmedStocks = []
+  foundUser.planAndTrackedStocks = []
+  foundUser.activeTradeRecords = []
+  foundUser.previousTradeRecords = []
+  await foundUser.save()
 
+  await ChartableStock.deleteMany({})
+  await EnterExitPlannedStock.deleteMany({})
+  await StockHistory.deleteMany({})
+  await TradeRecord.deleteMany({})
+  res.json({ m: 'reset' })
+})
 
 
 module.exports = {
@@ -149,4 +167,5 @@ module.exports = {
   removeUserSavedMarketFilter,
   fetchUsersConfirmedPatterns,
   fetchUserEnterExitPlans,
+  resetUser
 };

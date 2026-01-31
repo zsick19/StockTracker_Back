@@ -28,5 +28,7 @@ router.route("/watchlist/:watchListId/tickers")
 router.route("/enterExitPlans")
     .get(UserController.fetchUserEnterExitPlans)
 
+router.route('/reset')
+    .get(UserController.resetUser)
 
 module.exports = router;

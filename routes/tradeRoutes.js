@@ -13,8 +13,7 @@ router.route('/enterPosition')
 router.route('/alter')
     .put(TradeController.alterTradeRecord)
 
-router.route('/exitPosition')
-    .post(TradeController.exitTradeRecord)
+
 
 router.route("/journal")
     .get(TradeController.fetchUsersTradeJournal)

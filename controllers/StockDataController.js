@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
-const { startOfWeek, subDays, subBusinessDays } = require('date-fns');
+const { startOfWeek, subDays, subBusinessDays, sub } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 const Stock = require("../models/Stock");
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
@@ -20,17 +20,17 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   const tickerInfoNeeded = req.query.info;
   const provideNews = req.query.provideNews;
 
-  if (!ticker || !timeFrame) return res.status(400).send('Missing Request Information')
+  if (!ticker || !timeFrame || ticker === 'undefined' || ticker === 'UNDEFINED') return res.status(400).send('Missing Request Information')
 
   let tickerInfo
   if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
 
   let start = new Date()
-  let end = subDays(new Date(), 1)
+  let end = sub(new Date(), { hours: 1 })
   let timeframeForAlpaca
 
   if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
-  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 3) }
+  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration) }
 
   switch (timeFrame.unitOfIncrement)
   {
