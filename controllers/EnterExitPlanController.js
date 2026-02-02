@@ -75,7 +75,22 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 });
 
 
-
+const togglePlanImportance = asyncHandler(async (req, res) =>
+{
+  const { enterExitId } = req.params
+  const markImportant = req.query.markImportant === 'true'
+  if (!enterExitId) return res.status(400).json({ message: 'Missing required information.' })
+  const importantDate = new Date()
+  if (markImportant)
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { highImportance: importantDate })
+    res.json({ highImportance: importantDate })
+  } else
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { highImportance: null })
+    res.json({ highImportance: undefined })
+  }
+})
 
 
 const updateEnterExitPlan = asyncHandler(async (req, res) =>
@@ -98,10 +113,28 @@ const updateEnterExitPlan = asyncHandler(async (req, res) =>
   res.json(foundEnterExitPlan)
 })
 
-
-
 const removeEnterExitPlan = asyncHandler(async (req, res) =>
 {
+  const { enterExitId, historyId } = req.params
+  if (!enterExitId || !historyId) return res.status(400).json({ message: 'Missing required information.' })
+
+  const foundUser = await User.findById(req.userId)
+  if (!foundUser) return res.status(404).json({ message: 'Data not found.' })
+  //remove the charting
+  const removeChartResult = await ChartableStock.findByIdAndDelete(enterExitId)
+  const removeEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(enterExitId)
+  const historyRemoved = await StockHistory.findByIdAndDelete(historyId)
+
+  console.log(removeChartResult, removeEnterExitPlan, historyRemoved)
+  foundUser.confirmedStocks.pull({ _id: enterExitId })
+  foundUser.planAndTrackedStocks.pull({ _id: enterExitId })
+  foundUser.userStockHistory.pull({ _id: historyId })
+  await foundUser.save()
+  
+  let taskData = { remove: true, tickerSymbol: removeChartResult.tickerSymbol, userId: req.userId }
+  sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
+
+
   res.json({ m: 'connected' })
 })
 
@@ -149,6 +182,7 @@ const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>
 
 module.exports = {
   initiateEnterExitPlan,
+  togglePlanImportance,
   updateEnterExitPlan,
   removeEnterExitPlan,
   removeGroupEnterExitPlan
