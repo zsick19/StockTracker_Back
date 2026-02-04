@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const dailyEMSchema = new mongoose.Schema({
     iVolDailyEMUpper: { type: Number },
     iVolDailyEMLower: { type: Number },
+    dailyEMLower: { type: Number },
+    dailyEMUpper: { type: Number },
     dailyClose: { type: Number },
     sigma: { type: Number },
     lastUpdated: { type: Date }
@@ -19,6 +21,8 @@ const weeklyEMSchema = new mongoose.Schema({
 const monthlyEMSchema = new mongoose.Schema({
     iVolMonthlyEMUpper: { type: Number },
     iVolMonthlyEMLower: { type: Number },
+    monthLowerEM: { type: Number },
+    monthUpperEM: { type: Number },
     monthlyClose: { type: Number },
     sigma: { type: Number },
     lastUpdated: { type: Date }
@@ -30,7 +34,7 @@ const standardDeviationSchema = new mongoose.Schema({
     std2Upper: { type: Number },
     std1Lower: { type: Number },
     std2Lower: { type: Number },
-})
+}, { _id: false })
 
 const trendLineSchema = new mongoose.Schema({
     id: { type: Number },

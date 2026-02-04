@@ -71,10 +71,10 @@ const fetchKeyLevelsData = asyncHandler(async (req, res) =>
   const { chartId } = req.params;
   if (!chartId) return res.status(400)
 
-  const foundChartableStock = await MacroChartedStock.findById(chartId);
-  if (!foundChartableStock) return res.status(404)
+  const foundMacroStock = await MacroChartedStock.findById(chartId).select({ gammaFlip: 1, callWall: 1, putWall: 1, dailyEM: 1, weeklyEM: 1, monthlyEM: 1, oneDayToExpire: 1, standardDeviation: 1, });
+  if (!foundMacroStock) return res.status(404)
 
-  res.json(foundChartableStock)
+  res.json(foundMacroStock)
 })
 
 const updateKeyLevelData = asyncHandler(async (req, res) =>
@@ -82,87 +82,26 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
   const { chartId } = req.params
   const { updatedKeyLevels } = req.body
 
-  const foundChartableStock = await MacroChartedStock.findById(chartId);
-  if (!foundChartableStock) return res.status(404)
-
-  const updateDate = new Date()
-
-  if (updatedKeyLevels.gammaFlip) foundChartableStock.gammaFlip = updatedKeyLevels.gammaFlip
-  if (updatedKeyLevels.putWall) foundChartableStock.putWall = updatedKeyLevels.putWall
-  if (updatedKeyLevels.callWall) foundChartableStock.callWall = updatedKeyLevels.callWall
+  const foundMacroStock = await MacroChartedStock.findById(chartId);
+  if (!foundMacroStock) return res.status(404)
 
 
-  if (updatedKeyLevels.iVolEMDailyUpper)
-  {
-    if (!foundChartableStock.dailyEM) foundChartableStock.dailyEM = {}
-    foundChartableStock.dailyEM.iVolDailyEMUpper = updatedKeyLevels.iVolEMDailyUpper
-    updates.dailyEM = updateDate
-  }
-  if (updatedKeyLevels.iVolEMDailyLower)
-  {
-    if (!foundChartableStock.dailyEM) foundChartableStock.dailyEM = {}
-    foundChartableStock.dailyEM.iVolDailyEMLower = updatedKeyLevels.iVolEMDailyLower
-    updates.dailyEM = updateDate
-  }
-  if (updatedKeyLevels.dailyClose)
-  {
-    if (!foundChartableStock.dailyEM) foundChartableStock.dailyEM = {}
-    foundChartableStock.dailyEM.dailyClose = updatedKeyLevels.dailyClose
-    updates.dailyEM = updateDate
-  }
-  if (updatedKeyLevels.dailySigma)
-  {
-    if (!foundChartableStock.dailyEM) foundChartableStock.dailyEM = {}
-    foundChartableStock.dailyEM.dailySigma = updatedKeyLevels.dailySigma
-    updates.dailyEM = updateDate
-  }
+  const updatedToday = new Date()
+  foundMacroStock.dailyEM = { ...foundMacroStock.dailyEM, ...updatedKeyLevels.dailyEM, lastUpdated: updatedToday }
+  foundMacroStock.weeklyEM = { ...foundMacroStock.weeklyEM, ...updatedKeyLevels.weeklyEM, lastUpdated: updatedToday }
+  foundMacroStock.monthlyEM = { ...foundMacroStock.monthlyEM, ...updatedKeyLevels.monthlyEM, lastUpdated: updatedToday }
 
-  if (updatedKeyLevels.iVolEMWeeklyUpper)
-  {
-    if (!foundChartableStock.weeklyEM) foundChartableStock.weeklyEM = {}
-    foundChartableStock.weeklyEM.iVolWeeklyEMUpper = updatedKeyLevels.iVolEMWeeklyUpper
-    updates.weeklyEM = updateDate
-  }
-  if (updatedKeyLevels.iVolEMWeeklyLower)
-  {
-    if (!foundChartableStock.weeklyEM) foundChartableStock.weeklyEM = {}
-    foundChartableStock.weeklyEM.iVolWeeklyEMLower = updatedKeyLevels.iVolEMWeeklyLower
-    updates.weeklyEM = updateDate
-  }
-  if (updatedKeyLevels.weeklyClose)
-  {
-    if (!foundChartableStock.weeklyEM) foundChartableStock.weeklyEM = {}
-    foundChartableStock.weeklyEM.weeklyClose = updatedKeyLevels.weeklyClose
-    updates.weeklyEM = updateDate
-  }
-  if (updatedKeyLevels.weeklySigma)
-  {
-    if (!foundChartableStock.weeklyEM) foundChartableStock.weeklyEM = {}
-    foundChartableStock.weeklyEM.weeklySigma = updatedKeyLevels.weeklySigma
-    updates.weeklyEM = updateDate
-  }
+  foundMacroStock.gammaFlip = updatedKeyLevels.gammaFlip
+  foundMacroStock.putWall = updatedKeyLevels.putWall
+  foundMacroStock.callWall = updatedKeyLevels.callWall
+  foundMacroStock.oneDayToExpire = updatedKeyLevels.oneDayToExpire
 
-  await foundChartableStock.save()
+  await foundMacroStock.save()
 
-  res.json({ message: 'connected' })
-
+  res.json(foundMacroStock)
 })
 
-const fetchUsersMacroKeyLevelsDate = asyncHandler(async (req, res) =>
-{
-  console.log(req.userId)
 
-
-
-
-  res.json([{ _id: 'aa', ticker: 'SPY', dailyEM: { dailyClose: 123.33 } }, { _id: 'bb', ticker: 'DIA', dailyEM: { dailyClose: 25.47 } }])
-})
-
-const updateUsersMacroKeyLevelData = asyncHandler(async (req, res) =>
-{
-
-  res.json({ message: 'connected' })
-})
 
 
 const fetchMacroChartingAndKeyLevelData = asyncHandler(async (req, res) =>
@@ -181,8 +120,6 @@ module.exports = {
   updateUserChartingPerChartId,
   fetchKeyLevelsData,
   updateKeyLevelData,
-  fetchUsersMacroKeyLevelsDate,
-  updateUsersMacroKeyLevelData,
   removeChartableStock,
   fetchMacroChartingAndKeyLevelData
 };

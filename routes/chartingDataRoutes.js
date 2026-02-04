@@ -11,8 +11,8 @@ router.route("/:chartId")
 router.route('/macro/:macroChartId')
     .get(ChartingController.fetchMacroChartingAndKeyLevelData)
 
-router.route("/keyLevels/macros")
-    .get(ChartingController.fetchUsersMacroKeyLevelsDate)
+// router.route("/keyLevels/macros")
+//     .get(ChartingController.fetchUsersMacroKeyLevelsDate)
 
 router.route("/keyLevels/singleMacro/:chartId")
     .get(ChartingController.fetchKeyLevelsData)
