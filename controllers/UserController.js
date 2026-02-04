@@ -9,8 +9,10 @@ const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQServi
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
 const TradeRecord = require("../models/TradeRecord");
 
+const MacroChartedStock = require('../models/MacroChartedStock')
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
+
 
 
 const userLoginDataFetch = asyncHandler(async (req, res) =>
@@ -19,6 +21,12 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+
+
+
+
+
 
 
 

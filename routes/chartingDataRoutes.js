@@ -8,10 +8,13 @@ router.route("/:chartId")
     .put(ChartingController.updateUserChartingPerChartId)
     .delete(ChartingController.removeChartableStock)
 
+router.route('/macro/:macroChartId')
+    .get(ChartingController.fetchMacroChartingAndKeyLevelData)
+
 router.route("/keyLevels/macros")
     .get(ChartingController.fetchUsersMacroKeyLevelsDate)
 
-router.route("/keyLevels/single/:chartId")
+router.route("/keyLevels/singleMacro/:chartId")
     .get(ChartingController.fetchKeyLevelsData)
     .put(ChartingController.updateKeyLevelData)
 

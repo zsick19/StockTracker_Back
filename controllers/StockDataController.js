@@ -100,7 +100,7 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   {
     await retryOperation(async () =>
     {
-      let options = { timeframe: '1D', start: subDays(new Date(), 180).toISOString().slice(0, 10) };
+      let options = { timeframe: '1D', start: subDays(new Date(), 90).toISOString().slice(0, 10) };
 
       const tickerData = await alpaca.getMultiBarsV2(tickersForStockData, options)
       const candleData = {}

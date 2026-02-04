@@ -4,6 +4,7 @@ const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 const User = require("../models/User");
 const StockHistory = require("../models/StockHistory");
+const MacroChartedStock = require("../models/MacroChartedStock");
 
 const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
@@ -70,16 +71,10 @@ const fetchKeyLevelsData = asyncHandler(async (req, res) =>
   const { chartId } = req.params;
   if (!chartId) return res.status(400)
 
-  const foundChartableStock = await ChartableStock.findById(chartId);
+  const foundChartableStock = await MacroChartedStock.findById(chartId);
   if (!foundChartableStock) return res.status(404)
 
-  let keyLevelResponse = {
-    gammaFlip: foundChartableStock?.gammaFlip,
-    callWall: foundChartableStock?.callWall,
-    putWall: foundChartableStock?.putWall
-  }
-
-  res.json(keyLevelResponse)
+  res.json(foundChartableStock)
 })
 
 const updateKeyLevelData = asyncHandler(async (req, res) =>
@@ -87,7 +82,7 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
   const { chartId } = req.params
   const { updatedKeyLevels } = req.body
 
-  const foundChartableStock = await ChartableStock.findById(chartId);
+  const foundChartableStock = await MacroChartedStock.findById(chartId);
   if (!foundChartableStock) return res.status(404)
 
   const updateDate = new Date()
@@ -150,6 +145,7 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
   await foundChartableStock.save()
 
   res.json({ message: 'connected' })
+
 })
 
 const fetchUsersMacroKeyLevelsDate = asyncHandler(async (req, res) =>
@@ -169,6 +165,17 @@ const updateUsersMacroKeyLevelData = asyncHandler(async (req, res) =>
 })
 
 
+const fetchMacroChartingAndKeyLevelData = asyncHandler(async (req, res) =>
+{
+  const { macroChartId } = req.params;
+  if (!macroChartId) return res.status(400).json({ message: 'Missing Required Information' })
+  const foundMacroStock = await MacroChartedStock.findById(macroChartId);
+  if (!foundMacroStock) return res.status(404).json({ message: 'Chart does not exist.' })
+  res.json(foundMacroStock)
+})
+
+
+
 module.exports = {
   fetchChartingAndKeyLevelData,
   updateUserChartingPerChartId,
@@ -176,5 +183,6 @@ module.exports = {
   updateKeyLevelData,
   fetchUsersMacroKeyLevelsDate,
   updateUsersMacroKeyLevelData,
-  removeChartableStock
+  removeChartableStock,
+  fetchMacroChartingAndKeyLevelData
 };
