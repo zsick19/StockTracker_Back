@@ -95,6 +95,7 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
   foundMacroStock.putWall = updatedKeyLevels.putWall
   foundMacroStock.callWall = updatedKeyLevels.callWall
   foundMacroStock.oneDayToExpire = updatedKeyLevels.oneDayToExpire
+  foundMacroStock.standardDeviation = updatedKeyLevels.standardDeviation
 
   await foundMacroStock.save()
 

@@ -26,7 +26,7 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
 
   let start = new Date()
-  let end = sub(new Date(), { hours: 1 })
+  let end = new Date()
   let timeframeForAlpaca
 
   if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }

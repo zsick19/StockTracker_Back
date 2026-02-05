@@ -5,18 +5,23 @@ const dailyEMSchema = new mongoose.Schema({
     iVolDailyEMLower: { type: Number },
     dailyEMLower: { type: Number },
     dailyEMUpper: { type: Number },
-    dailyClose: { type: Number },
-    sigma: { type: Number },
     lastUpdated: { type: Date }
 }, { _id: false })
-
+const previousEMSchema = new mongoose.Schema({
+    startDate: Date,
+    upper: Number,
+    lower: Number
+}, { _id: false })
 const weeklyEMSchema = new mongoose.Schema({
     iVolWeeklyEMUpper: { type: Number },
     iVolWeeklyEMLower: { type: Number },
     weeklyClose: { type: Number },
     sigma: { type: Number },
-    lastUpdated: { type: Date }
+    lastUpdated: { type: Date },
+    previousWeeklyEM: [previousEMSchema]
 }, { _id: false })
+
+
 
 const monthlyEMSchema = new mongoose.Schema({
     iVolMonthlyEMUpper: { type: Number },
@@ -24,16 +29,14 @@ const monthlyEMSchema = new mongoose.Schema({
     monthLowerEM: { type: Number },
     monthUpperEM: { type: Number },
     monthlyClose: { type: Number },
-    sigma: { type: Number },
+    previousMonthlyEM: [previousEMSchema],
+    sigma: { type: Number, default: null },
     lastUpdated: { type: Date }
 }, { _id: false })
 
 const standardDeviationSchema = new mongoose.Schema({
     sigma: Number,
-    std1Upper: { type: Number },
-    std2Upper: { type: Number },
-    std1Lower: { type: Number },
-    std2Lower: { type: Number },
+    close: Number,
 }, { _id: false })
 
 const trendLineSchema = new mongoose.Schema({
