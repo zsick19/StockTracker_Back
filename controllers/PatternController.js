@@ -62,7 +62,6 @@ const fetchUsersUnconfirmedPatterns = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId).select('unConfirmedPatterns')
   if (!foundUser) return res.status(404).json({ message: 'User not found' })
-
   res.json(foundUser.unConfirmedPatterns)
 })
 
@@ -147,14 +146,7 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
     foundUser.markModified('confirmedStocks')
 
     let possibleHistoryUpdateId = undefined
-    foundUser.userStockHistory.forEach((history) =>
-    {
-      if (tickerToAdd === history.symbol)
-      {
-        possibleHistoryUpdateId = history._id
-        return
-      }
-    })
+    foundUser.userStockHistory.forEach((history) => { if (tickerToAdd === history.symbol) { possibleHistoryUpdateId = history._id; return } })
 
     if (possibleHistoryUpdateId)
     {
@@ -175,10 +167,79 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
   }
 })
 
+const addListOfTickersDirectlyToUser = asyncHandler(async (req, res) =>
+{
+  const tickersToAdd = req.body
+  if (!tickersToAdd || tickersToAdd.length === 0) return res.status(400).json({ message: 'Missing required information.' })
+
+  const foundUser = await User.findById(req.userId).populate('userStockHistory')
+  if (!foundUser) return res.status(404).json({ message: 'Data Not Found' })
+
+  let foundTickersToAdd = []
+  let tickersNotAbleToAdd = []
+  let justTheAddedTicker = []
+  for (const ticker of tickersToAdd)
+  {
+    try
+    {
+      await alpaca.getLatestTrade(ticker)
+      const tickerStockInfo = await Stock.findOne({ Symbol: ticker })
+      if (!tickerStockInfo) tickersNotAbleToAdd.push(ticker)
+
+      const checkForPatterDuplicate = await ChartableStock.findOne({ tickerSymbol: ticker, chartedBy: req.userId })
+      if (checkForPatterDuplicate) tickersNotAbleToAdd.push(ticker)
+      else
+      {
+        foundTickersToAdd.push({ tickerSymbol: ticker, sector: tickerStockInfo.Sector, chartedBy: foundUser._id, status: -1 })
+        justTheAddedTicker.push(ticker)
+      }
+    } catch (error)
+    {
+      console.log(error)
+    }
+  }
+
+  if (foundTickersToAdd.length === 0) return res.json({ message: 'No Tickers were able to be added.' })
+
+  const directConfirmed = await ChartableStock.insertMany(foundTickersToAdd)
+  if (directConfirmed.length === 0) return res.json({ message: 'No Tickers were added' })
+
+  let usersUnConfirmedPatterns = foundUser.unConfirmedPatterns
+  let filteredUnConfirmedPatternResult = [...new Set(usersUnConfirmedPatterns).symmetricDifference(new Set(justTheAddedTicker))]
+  foundUser.unConfirmedPatterns = filteredUnConfirmedPatternResult
+  foundUser.markModified('unConfirmedPatterns')
+
+
+  let possibleHistoryUpdateIds = []
+  directConfirmed.map((confirmed) =>
+  {
+    foundUser.confirmedStocks.push(confirmed._id)
+    foundUser.userStockHistory.forEach((history) => { if (confirmed.tickerSymbol === history.symbol) { possibleHistoryUpdateIds.push(history._id); return } })
+  })
+  foundUser.markModified('confirmedStocks')
+
+
+  if (possibleHistoryUpdateIds.length > 0)
+  {
+    const result = await StockHistory.updateMany({ _id: { $in: possibleHistoryUpdateIds } }, { $push: { "history": { action: 'confirmed', date: new Date() } } })
+  } else
+  {
+    let historiesToBeCreated = directConfirmed.map((confirmed) => { return { symbol: confirmed.tickerSymbol, userId: req.userId, history: [{ action: 'confirmed', date: new Date() }] } })
+    const createdHistory = await StockHistory.insertMany(historiesToBeCreated)
+    foundUser.userStockHistory.push(createdHistory)
+    foundUser.markModified('userStockHistory')
+  }
+
+  await foundUser.save()
+  res.json({ directConfirmed, userHistory: foundUser.userStockHistory })
+})
+
+
 module.exports = {
   addPatternedStockToUser,
   removePatternedStockFromUser,
   fetchUsersUnconfirmedPatterns,
   addConfirmedTickerDirectlyToUser,
+  addListOfTickersDirectlyToUser,
   syncConfirmRemovePatterns
 };

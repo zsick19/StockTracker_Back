@@ -33,6 +33,12 @@ const monthlyEMSchema = new mongoose.Schema({
     sigma: { type: Number, default: null },
     lastUpdated: { type: Date }
 }, { _id: false })
+const quarterlyEMSchema = new mongoose.Schema({
+    quarterlyLower: { type: Number },
+    quarterlyUpper: { type: Number },
+    previousQuarterlyEM: [previousEMSchema],
+    lastUpdated: { type: Date }
+}, { _id: false })
 
 const standardDeviationSchema = new mongoose.Schema({
     sigma: Number,
@@ -71,6 +77,7 @@ const macroChartedStockSchema = new mongoose.Schema({
     dailyEM: dailyEMSchema,
     weeklyEM: weeklyEMSchema,
     monthlyEM: monthlyEMSchema,
+    quarterlyEM: quarterlyEMSchema,
     standardDeviation: standardDeviationSchema,
     gammaFlip: Number,
     oneDayToExpire: [Number],

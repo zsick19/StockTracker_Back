@@ -79,17 +79,27 @@ const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
   const body = req.body
 
 
-  let filterResults = await Stock.aggregate([matchGenerator(body), { $sort: { Symbol: 1 } }, { $project: { _id: 0 } },
-  {
-    $facet: {
-      count: [{ $count: "total" }],
-      data: [{ $skip: (pageSize * (page - 1)) }, { $limit: parseInt(pageSize) }]
-    }
-  }, { $unwind: "$count" }])
-
+  let bodyMatch = matchGenerator(body)
+  let filterResults = await Stock.aggregate([bodyMatch, { $sort: { Symbol: 1 } }, { $project: { _id: 0 } },
+    {
+      $facet: {
+        count: [{ $count: "total" }],
+        data: [{ $skip: (pageSize * (page - 1)) }, { $limit: parseInt(pageSize) }]
+      }
+    }, { $unwind: "$count" }])
 
   let stocksThatMatchFilterResults = filterResults[0]?.data
-  function matchGenerator(body) { if (Object.keys(body).length === 0) { return { "$match": {} } } else { return { "$match": body } } }
+  function matchGenerator(body)
+  {
+    if (body.AvgVolume)
+    {
+      let avgV = parseInt(body.AvgVolume)
+      if (avgV > 0) body.AvgVolume = { "$gt": avgV }
+    }
+
+    if (Object.keys(body).length === 0) { return { "$match": {} } }
+    else { return { "$match": body } }
+  }
 
 
   let tickersForStockData = stocksThatMatchFilterResults.map((stock) => stock.Symbol)

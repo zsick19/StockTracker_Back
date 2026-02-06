@@ -17,6 +17,8 @@ router.route("/confirmed")
 
 router.route("/directConfirmed")
     .get(PatternController.addConfirmedTickerDirectlyToUser)
+    .post(PatternController.addListOfTickersDirectlyToUser)
+
 router.route("/found/:historyId")
     .delete(PatternController.removePatternedStockFromUser)
 
