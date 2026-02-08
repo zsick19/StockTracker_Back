@@ -30,7 +30,7 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   let timeframeForAlpaca
 
   if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
-  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration) }
+  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 1) }
 
   switch (timeFrame.unitOfIncrement)
   {

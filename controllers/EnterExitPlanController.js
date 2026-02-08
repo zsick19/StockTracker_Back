@@ -120,22 +120,38 @@ const removeEnterExitPlan = asyncHandler(async (req, res) =>
 
   const foundUser = await User.findById(req.userId)
   if (!foundUser) return res.status(404).json({ message: 'Data not found.' })
+
   //remove the charting
   const removeChartResult = await ChartableStock.findByIdAndDelete(enterExitId)
-  const removeEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(enterExitId)
-  const historyRemoved = await StockHistory.findByIdAndDelete(historyId)
-
-  console.log(removeChartResult, removeEnterExitPlan, historyRemoved)
   foundUser.confirmedStocks.pull({ _id: enterExitId })
+
+  const removeEnterExitPlan = await EnterExitPlannedStock.findByIdAndDelete(enterExitId)
   foundUser.planAndTrackedStocks.pull({ _id: enterExitId })
-  foundUser.userStockHistory.pull({ _id: historyId })
+
+  try
+  {
+    const historyRemoved = await StockHistory.findByIdAndDelete(historyId)
+    foundUser.userStockHistory.pull({ _id: historyId })
+  } catch (error)
+  {
+    try
+    {
+      const searchAndFindHistory = await StockHistory.find({ symbol: removeChartResult.tickerSymbol, userId: req.userId })
+      console.log(searchAndFindHistory)
+      await StockHistory.findByIdAndDelete(searchAndFindHistory._id)
+      foundUser.userStockHistory.pull({ _id: searchAndFindHistory._id })
+    } catch (error)
+    {
+      console.log('Stock history can not be found.')
+    }
+  }
+
   await foundUser.save()
-  
+
   let taskData = { remove: true, tickerSymbol: removeChartResult.tickerSymbol, userId: req.userId }
   sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
 
-
-  res.json({ m: 'connected' })
+  res.json({ m: 'Chart, Plan and History removed from user.' })
 })
 
 const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>

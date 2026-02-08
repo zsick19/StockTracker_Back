@@ -57,52 +57,11 @@ const lineHSchema = new mongoose.Schema({
   dateCreated: { type: Date },
 }, { _id: false })
 
-// const channelSchema = new mongoose.Schema({
-//   id: { type: Number },
-//   dateP1: { type: Date },
-//   priceP1: { type: Number },
-//   dateP2: { type: Date },
-//   priceP2: { type: Number },
-//   priceP3: { type: Number },
-//   priceP4: { type: Number },
-//   dateP5: { type: Date },
-//   priceP5: { type: Number },
-//   dateP6: { type: Date },
-//   priceP6: { type: Number },
-//   dateP7: { type: Date },
-//   priceP7: { type: Number },
-//   dateP8: { type: Date },
-//   priceP8: { type: Number },
-//   dateCreated: { type: Date }
-// }, { _id: false })
-// const triangleSchema = new mongoose.Schema({
-//   id: { type: Number },
-//   dateP1: { type: Date },
-//   priceP1: { type: Number },
-//   dateP2: { type: Date },
-//   priceP2: { type: Number },
-//   dateP3: { type: Date },
-//   priceP3: { type: Number },
-//   dateCreated: { type: Date }
-// }, { _id: false })
-// const wedgeSchema = new mongoose.Schema({
-//   id: { type: Number },
-//   dateP1: { type: Date },
-//   priceP1: { type: Number },
-//   dateP2: { type: Date },
-//   priceP2: { type: Number },
-//   priceP3: { type: Number },
-//   priceP4: { type: Number },
-//   dateP5: { type: Date },
-//   priceP5: { type: Number },
-//   dateP6: { type: Date },
-//   priceP6: { type: Number },
-//   dateP7: { type: Date },
-//   priceP7: { type: Number },
-//   dateP8: { type: Date },
-//   priceP8: { type: Number },
-//   dateCreated: { type: Date }
-// }, { _id: false })
+const volumeNodeSchema = new mongoose.Schema({
+  id: { type: Number },
+  price: { type: Number },
+  dateCreated: { type: Date }
+}, { _id: false })
 
 //planning schemas
 const enterExitLineSchema = new mongoose.Schema({
@@ -140,14 +99,12 @@ const chartableStockSchema = new mongoose.Schema({
     trendLinesId: { type: Number, default: 1 },
     linesH: [lineHSchema],
     linesHId: { type: Number, default: 1 },
-    // channels: [channelSchema],
-    // channelsId: { type: Number, default: 1 },
-    // triangles: [triangleSchema],
-    // trianglesId: { type: Number, default: 1 },
-    // wedges: [wedgeSchema],
-    // wedgesId: { type: Number, default: 1 },
+    highVolumeNodes: [volumeNodeSchema],
+    highVolumeNodesId: { type: Number, default: 1 },
+    lowVolumeNodes: [volumeNodeSchema],
+    lowVolumeNodesId: { type: Number, default: 1 },
     enterExitLines: { type: enterExitLineSchema, default: {} },
-    //enterExitsId: { type: Number, default: 1 }
+
   },
   status: { type: Number, default: 0 },
   dateAdded: { type: Date, default: new Date() },
