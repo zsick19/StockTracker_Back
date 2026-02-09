@@ -22,6 +22,7 @@ const updateUserChartingPerChartId = asyncHandler(async (req, res) =>
   const chartingUpdate = req.body
   const foundChartableStock = await ChartableStock.findById(chartId)
   foundChartableStock.charting = chartingUpdate
+  if (foundChartableStock.status < 3) foundChartableStock.status = 2
   await foundChartableStock.save()
   res.json(chartingUpdate)
 })

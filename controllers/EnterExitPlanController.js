@@ -39,7 +39,7 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   if (createdEnterExitPlannedStock)
   {
-    foundChartableStock.status = 2
+    foundChartableStock.status = 3
     foundChartableStock.plannedId = createdEnterExitPlannedStock._id
     await foundChartableStock.save()
 
@@ -185,8 +185,9 @@ const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>
 
 
   // //if there exists a plan, remove the plan and send message to stock tracker to remove tracking
-  // let taskData = { remove: true, tickerSymbol: removePossibleEnterExitPlan.tickerSymbol, userId: req.userId }
-  // sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
+  let taskData = { remove: true, tickerSymbol: Array.from(setForRemoval), userId: req.userId }
+  console.log(taskData)
+  sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
 
 
 

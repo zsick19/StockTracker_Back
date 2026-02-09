@@ -35,7 +35,6 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 {
   const foundUsersPreviousTrades = await User.findById(req.userId).select('previousTradeRecords').populate('previousTradeRecords')
-  console.log(foundUsersPreviousTrades)
   if (!foundUsersPreviousTrades) return res.status(404).json({ message: 'User not found.' })
   res.json(foundUsersPreviousTrades.previousTradeRecords)
 })
@@ -62,6 +61,8 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     averagePurchasePrice: purchasePrice,
   })
 
+  const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 4 })
+  console.log(updateChartableStockStatus)
 
   if (createdTradeRecord)
   {
