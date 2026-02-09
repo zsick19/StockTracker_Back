@@ -110,7 +110,8 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
       {
         foundTradeRecord.exitDate = today
         foundTradeRecord.tradeComplete = true
-
+        foundUser.confirmedStocks.pull(foundTradeRecord.enterExitPlanId)
+        foundUser.planAndTrackedStocks.pull(foundTradeRecord.enterExitPlanId)
         foundUser.activeTradeRecords.pull(foundTradeRecord)
         foundUser.previousTradeRecords.push(foundTradeRecord)
         await foundUser.save()
