@@ -109,7 +109,7 @@ const updateKeyLevelData = asyncHandler(async (req, res) =>
 const fetchMacroChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { macroChartId } = req.params;
-  if (!macroChartId) return res.status(400).json({ message: 'Missing Required Information' })
+  if (!macroChartId || macroChartId === 'undefined') return res.status(400).json({ message: 'Missing Required Information' })
   const foundMacroStock = await MacroChartedStock.findById(macroChartId);
   if (!foundMacroStock) return res.status(404).json({ message: 'Chart does not exist.' })
   res.json(foundMacroStock)

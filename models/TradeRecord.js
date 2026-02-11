@@ -16,11 +16,12 @@ const sellSchema = new mongoose.Schema({
 const tradeRecordSchema = new mongoose.Schema({
     tickerSymbol: { type: String, require: true },
     sector: { type: String },
+    industry: { type: String },
 
     tradingPlanPrices: [Number],
     enterExitPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlannedStock', },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', },
-
+    idealPercents: [Number],
     purchaseRecords: [purchaseSchema],
     sellRecords: [sellSchema],
 

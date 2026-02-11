@@ -9,8 +9,10 @@ const stockSchema = new mongoose.Schema({
     ATR: Number,
     Sector: String,
     Volume: Number,
-    Country: String
-
+    Country: String,
+    NextEarnings: Date,
+    EarningsDate: Date,
+    LastEarnings: Date
 })
 
 module.exports = mongoose.model('Stock', stockSchema)

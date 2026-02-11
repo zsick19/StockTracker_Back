@@ -90,10 +90,9 @@ const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
     unconfirmedCopySet = foundUser.unConfirmedPatterns.filter((t) => tickerSymbolsForConfirmed.indexOf(t) === -1)
 
     //update the user's stock history to reflect being confirmed
-    let date = new Date()
     let stockHistoryIdForUpdate = []
     foundUser.userStockHistory.map((history) => { if (tickerSymbolsForConfirmed.includes(history.symbol)) { stockHistoryIdForUpdate.push(history._id) } })
-    await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $push: { "history": { action: 'confirmed', date } } })
+    await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $push: { "history": { action: 'confirmed', date: new Date() } } })
   }
 
 
