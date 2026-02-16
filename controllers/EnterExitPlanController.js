@@ -24,6 +24,8 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
 
+  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / exitPrice)
+
 
 
 
@@ -33,6 +35,8 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     sector: foundChartableStock.sector,
     plan: { enterPrice, enterBufferPrice, stopLossPrice, exitBufferPrice, exitPrice, moonPrice, percents, dateCreated },
     initialTrackingPrice: latestTradePrice?.Price || undefined,
+    idealGPS: parseFloat((exitPrice - enterPrice).toFixed(2)),
+    with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2)),
     priceHitSinceTracked: 0,
     chartedBy: foundUser._id
   })
@@ -99,7 +103,10 @@ const updateEnterExitPlan = asyncHandler(async (req, res) =>
   if (!id || !enterPrice || !enterBufferPrice || !stopLossPrice || !exitBufferPrice || !exitPrice || !moonPrice || !percents) return res.status(400).json({ message: 'Missing required fields.' })
 
   const foundEnterExitPlan = await EnterExitPlannedStock.findById(id)
+  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / exitPrice)
   foundEnterExitPlan.plan = { ...foundEnterExitPlan.plan, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents }
+  foundEnterExitPlan.idealGPS = parseFloat((exitPrice - enterPrice).toFixed(2))
+  foundEnterExitPlan.with1000DollarsIdealGain = parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2))
   await foundEnterExitPlan.save()
 
   let taskData = {

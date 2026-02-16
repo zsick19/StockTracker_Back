@@ -17,6 +17,8 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         dateCreated: Date
     },
     initialTrackingPrice: Number,
+    with1000DollarsIdealGain: Number,
+    idealGPS: Number,
     priceHitSinceTracked: { type: Number, default: 0 },
     highImportance: Date,
     dateAdded: { type: Date, default: new Date() },

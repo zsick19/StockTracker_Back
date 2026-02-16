@@ -25,12 +25,12 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   let tickerInfo
   if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
 
-  let start = new Date()
+  let start = new Date().setHours(4, 0, 0, 0)
   let end = new Date()
   let timeframeForAlpaca
 
   if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
-  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 1) }
+  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 2) }
 
   switch (timeFrame.unitOfIncrement)
   {
@@ -153,10 +153,70 @@ const fetchGroupedStockData = asyncHandler(async (req, res) =>
   }
 })
 
+const calculate14DayATR = asyncHandler(async (req, res) =>
+{
+  const { ticker } = req.params;
+  if (!ticker) return res.status(400).send('Missing Request Information')
+
+  let start = subBusinessDays(new Date(), 50)
+  let end = new Date()
+  let timeframeForAlpaca = alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY);
+
+  try
+  {
+    await retryOperation(async () =>
+    {
+      const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start, end });
+
+      const candleData = []
+      for await (let singleStock of data) { candleData.push(singleStock) }
+      let atrResult = calculateATR(candleData)
+      res.json(atrResult)
+    })
+  } catch (error)
+  {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ message: 'error requesting stock data' })
+  }
+
+
+  function calculateATR(candles, period = 14)
+  {
+    if (candles.length < period) return [];
+
+    let atr = new Array(candles.length).fill(null);
+    let tr = new Array(candles.length);
+
+    for (let i = 0; i < candles.length; i++)
+    {
+      const current = candles[i];
+      if (i === 0) { tr[i] = current.high - current.low; } else
+      {
+        const prevClose = candles[i - 1].ClosePrice;
+        tr[i] = Math.max(current.HighPrice - current.LowPrice, Math.abs(current.HighPrice - prevClose), Math.abs(current.LowPrice - prevClose));
+      }
+    }
+
+    let sumTR = 0;
+    for (let i = 1; i < period; i++) { sumTR += tr[i]; }
+    atr[period - 1] = sumTR / period;
+    for (let i = period; i < candles.length; i++) { atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period; }
+
+    let firstATR = atr[13]
+    let currentATR = atr.at(-1)
+    let changeOverCandlePeriod = (currentATR - firstATR) / 50
+    return { firstATR, currentATR, changeOverCandlePeriod };
+  }
+})
+
+
+
+
 
 
 module.exports = {
   stockDataFetchWithLiveFeed,
   fetchMarketSearchStockData,
-  fetchGroupedStockData
+  fetchGroupedStockData,
+  calculate14DayATR
 };
