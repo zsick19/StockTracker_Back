@@ -21,13 +21,9 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
   const foundChartableStock = await ChartableStock.findById(req.params.chartId)
   if (!foundChartableStock) return res.status(404).json({ message: 'Chart Not Found' })
 
-
   const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
 
   let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / exitPrice)
-
-
-
 
   const createdEnterExitPlannedStock = await EnterExitPlannedStock.create({
     _id: foundChartableStock._id,
@@ -68,13 +64,6 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
   }
 
   sendRabbitMessage(req, res, rabbitQueueNames.initiateTrackingQueueName, taskData)
-
-
-
-
-
-
-
   res.json(createdEnterExitPlannedStock)
 });
 
@@ -83,6 +72,7 @@ const togglePlanImportance = asyncHandler(async (req, res) =>
 {
   const { enterExitId } = req.params
   const markImportant = req.query.markImportant === 'true'
+
   if (!enterExitId) return res.status(400).json({ message: 'Missing required information.' })
   const importantDate = new Date()
   if (markImportant)
@@ -95,7 +85,6 @@ const togglePlanImportance = asyncHandler(async (req, res) =>
     res.json({ highImportance: undefined })
   }
 })
-
 
 const updateEnterExitPlan = asyncHandler(async (req, res) =>
 {

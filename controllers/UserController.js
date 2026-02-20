@@ -22,14 +22,6 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-
-
-
-
-
-
-
-
   let taskData = { userId: foundUser._id }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
 
@@ -54,6 +46,17 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
     res.status(500).json({ message: 'error fetching macro ticker data' })
     console.log(error)
   }
+})
+
+
+const recordUsersMostRecentMarketPageSearch = asyncHandler(async (req, res) =>
+{
+  const { marketFilters, mostRecentPage } = req.body
+  if(!marketFilters||!mostRecentPage) return res.status(400).json({message:'Missing required information.'})
+
+
+
+    
 })
 
 const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
@@ -107,6 +110,9 @@ const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
 
   res.json(foundUser.marketSearchFilters)
 })
+
+
+
 
 
 const fetchUsersConfirmedPatterns = asyncHandler(async (req, res) =>

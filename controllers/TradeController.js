@@ -7,6 +7,7 @@ const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const TradeRecord = require("../models/TradeRecord");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
+const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -21,10 +22,23 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
   try
   {
     let mostRecentPrices = {}
+    let previousClose = {}
+
     const tradesForMostRecentPrice = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
+
+    const trial = await alpaca.getSnapshots(tradesForMostRecentPrice)
+    //    console.log(trial)
+    trial.forEach((trade) =>
+    {
+      mostRecentPrices[trade.symbol] = trade.LatestTrade.Price
+      previousClose[trade.symbol] = trade.PrevDailyBar.ClosePrice
+    })
+
+
     const result = await alpaca.getLatestTrades(tradesForMostRecentPrice)
-    foundTrades.forEach((trade) => { mostRecentPrices[trade.tickerSymbol] = result.get(trade.tickerSymbol).Price })
-    res.json({ mostRecentPrices: mostRecentPrices, activeTrades: foundTrades })
+    //console.log(result)
+    //foundTrades.forEach((trade) => { mostRecentPrices[trade.tickerSymbol] = result.get(trade.tickerSymbol).Price })
+    res.json({ mostRecentPrices: mostRecentPrices, previousClose, activeTrades: foundTrades })
   } catch (error)
   {
     res.status(500).json({ message: 'Error Fetching Prices' })
@@ -42,8 +56,14 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 
 const createTradeRecord = asyncHandler(async (req, res) =>
 {
-  const { tickerSymbol, tickerSector, positionSize, purchasePrice, tradingPlanPrices, enterExitPlanId } = req.body
-  if (!tickerSymbol || !positionSize || !purchasePrice || !tradingPlanPrices || !enterExitPlanId) return res.status(400).json({ message: 'Missing Required Information' })
+  const { tickerSymbol, tickerSector, idealPercents, atrAtPurchase, daysToCover, idealGainPercent, positionSize, purchasePrice, tradingPlanPrices, enterExitPlanId } = req.body
+  if (!tickerSymbol || !positionSize || !purchasePrice || !tradingPlanPrices || !enterExitPlanId || !idealPercents || !idealGainPercent) return res.status(400).json({ message: 'Missing Required Information' })
+
+
+  if (!atrAtPurchase || !daysToCover)
+  {
+    //fetch and calculate atr and days to cover
+  }
 
   const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
   if (foundTradeRecord && !foundTradeRecord?.tradeComplete) return res.status(400).json({ message: 'Can not initiate a still open trade record.' })
@@ -52,8 +72,12 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   const createdTradeRecord = await TradeRecord.create({
     tickerSymbol,
     sector: tickerSector,
+    atrAtPurchase,
+    daysToCover,
     tradingPlanPrices,
     enterExitPlanId,
+    idealPercents,
+    idealGainPercent,
     userId: foundUser._id,
     purchaseRecords: [{ purchasePrice, positionSize }],
     sellRecords: [],
@@ -62,7 +86,26 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   })
 
   const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 4 })
-  console.log(updateChartableStockStatus)
+
+  const updateEnterExitPlan = await EnterExitPlannedStock.findById(enterExitPlanId)
+  if (updateEnterExitPlan)
+  {
+    updateEnterExitPlan.plan.enterPrice = purchasePrice
+    updateEnterExitPlan.plan.percents = [calcPercent(updateEnterExitPlan.plan.stopLossPrice),
+    calcPercent(updateEnterExitPlan.plan.enterBufferPrice),
+    calcPercent(updateEnterExitPlan.plan.exitBufferPrice),
+    calcPercent(updateEnterExitPlan.plan.exitPrice),
+    calcPercent(updateEnterExitPlan.plan.moonPrice)]
+    function calcPercent(price) { return (Math.abs(parseFloat(((price - purchasePrice) / purchasePrice) * 100).toFixed(2))) }
+    await updateEnterExitPlan.save()
+  }
+
+
+
+
+
+
+
 
   if (createdTradeRecord)
   {
@@ -96,13 +139,15 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
       let positionSizeToClose = positionSizeOfAlter
       if (positionSizeOfAlter > foundTradeRecord.availableShares) positionSizeToClose = foundTradeRecord.availableShares
       foundTradeRecord.sellRecords.push({ sellPrice: tradePrice, positionSize: positionSizeToClose, sellDate: today })
+
       let averageSellPrice = 0
       let totalSellRecords = 0
       foundTradeRecord.sellRecords.forEach((record) =>
       {
-        averageSellPrice = averageSellPrice + record.sellPrice
+        averageSellPrice = averageSellPrice + record.sellPrice;
         totalSellRecords = totalSellRecords + 1
       })
+
       foundTradeRecord.averageSellPrice = averageSellPrice / totalSellRecords
       foundTradeRecord.availableShares = foundTradeRecord.availableShares - positionSizeToClose
 
@@ -110,13 +155,25 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
       {
         foundTradeRecord.exitDate = today
         foundTradeRecord.tradeComplete = true
+
+        foundTradeRecord.exitGain = parseFloat(((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) * positionSizeToClose).toFixed(2))
+        foundTradeRecord.exitGainPercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) / foundTradeRecord.averagePurchasePrice) * 100).toFixed(2))
+        foundTradeRecord.exitMovePercent = parseFloat(((foundTradeRecord.averageSellPrice / foundTradeRecord.tradingPlanPrices[4]) * 100).toFixed(2))
+
+
         foundUser.confirmedStocks.pull(foundTradeRecord.enterExitPlanId)
         foundUser.planAndTrackedStocks.pull(foundTradeRecord.enterExitPlanId)
+
         foundUser.activeTradeRecords.pull(foundTradeRecord)
         foundUser.previousTradeRecords.push(foundTradeRecord)
         await foundUser.save()
+
+        //send message to monitor to remove ticker
+        let taskData = { remove: true, tickerSymbol: foundTradeRecord.tickerSymbol, userId: req.userId }
+        sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
       }
       break;
+
     case 'partialSell':
 
       break;

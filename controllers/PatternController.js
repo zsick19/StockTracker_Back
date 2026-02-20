@@ -133,8 +133,7 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
   try
   {
     await alpaca.getLatestTrade(tickerToAdd)
-    const tickerStockInfo = await Stock.find({ Symbol: tickerToAdd })
-
+    const tickerStockInfo = await Stock.findOne({ Symbol: tickerToAdd })
     if (!tickerStockInfo) throw new Error()
 
     const directConfirmed = await ChartableStock.create({ tickerSymbol: tickerToAdd, sector: tickerStockInfo.Sector, chartedBy: foundUser._id, status: -1 })

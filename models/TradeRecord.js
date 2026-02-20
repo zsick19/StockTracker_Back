@@ -24,7 +24,8 @@ const tradeRecordSchema = new mongoose.Schema({
     idealPercents: [Number],
     purchaseRecords: [purchaseSchema],
     sellRecords: [sellSchema],
-
+    atrAtPurchase: Number,
+    daysToCover: Number,
     availableShares: { type: Number, default: 0 },
 
     averagePurchasePrice: { type: Number },
