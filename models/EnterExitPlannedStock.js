@@ -21,6 +21,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     idealGPS: Number,
     priceHitSinceTracked: { type: Number, default: 0 },
     highImportance: Date,
+    tradeEnterDate: Date,
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });

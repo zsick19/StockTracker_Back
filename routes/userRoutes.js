@@ -10,6 +10,10 @@ router.route("/marketSearch/filter")
     .post(UserController.createUserSavedMarketFilter)
     .delete(UserController.removeUserSavedMarketFilter)
 
+router.route("/marketSearch/record")
+    .get(UserController.fetchUsersMarketSearchProgress)
+    .post(UserController.recordUsersMostRecentMarketPageSearch)
+
 
 router.route("/watchlist/:userId")
     .post(WatchListController.createUserWatchList);

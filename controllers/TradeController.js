@@ -25,19 +25,14 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
     let previousClose = {}
 
     const tradesForMostRecentPrice = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
-
-    const trial = await alpaca.getSnapshots(tradesForMostRecentPrice)
-    //    console.log(trial)
-    trial.forEach((trade) =>
+    const result = await alpaca.getSnapshots(tradesForMostRecentPrice)
+    result.forEach((trade) =>
     {
       mostRecentPrices[trade.symbol] = trade.LatestTrade.Price
       previousClose[trade.symbol] = trade.PrevDailyBar.ClosePrice
     })
 
 
-    const result = await alpaca.getLatestTrades(tradesForMostRecentPrice)
-    //console.log(result)
-    //foundTrades.forEach((trade) => { mostRecentPrices[trade.tickerSymbol] = result.get(trade.tickerSymbol).Price })
     res.json({ mostRecentPrices: mostRecentPrices, previousClose, activeTrades: foundTrades })
   } catch (error)
   {
@@ -91,6 +86,8 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   if (updateEnterExitPlan)
   {
     updateEnterExitPlan.plan.enterPrice = purchasePrice
+    updateEnterExitPlan.enterTradeDate = new Date()
+    
     updateEnterExitPlan.plan.percents = [calcPercent(updateEnterExitPlan.plan.stopLossPrice),
     calcPercent(updateEnterExitPlan.plan.enterBufferPrice),
     calcPercent(updateEnterExitPlan.plan.exitBufferPrice),

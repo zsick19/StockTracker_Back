@@ -28,6 +28,9 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   res.json(foundUser);
 });
 
+
+
+
 const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
 {
   const userId = req.userId
@@ -49,14 +52,26 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
 })
 
 
+
+//MARKET SEARCH PROGRESS AND FILTERS
+const fetchUsersMarketSearchProgress = asyncHandler(async (req, res) =>
+{
+  const foundUserSearchProgress = await User.findById(req.userId).select('marketSearchProgress -_id')
+  if (!foundUserSearchProgress) return res.status(404).json({ message: 'Progress Not Found' })
+  res.json(foundUserSearchProgress)
+})
 const recordUsersMostRecentMarketPageSearch = asyncHandler(async (req, res) =>
 {
-  const { marketFilters, mostRecentPage } = req.body
-  if(!marketFilters||!mostRecentPage) return res.status(400).json({message:'Missing required information.'})
+  const { marketFilters, mostRecentPage, resultsPerPage } = req.body
+  if (!marketFilters || !mostRecentPage) return res.status(400).json({ message: 'Missing required information.' })
 
+  const foundUser = await User.findById(req.userId)
+  if (!foundUser) return res.status(404).json({ message: 'User Not Found.' })
 
+  foundUser.marketSearchProgress = { mostRecentPage, filterParams: { ...marketFilters }, resultsPerPage }
+  await foundUser.save()
 
-    
+  res.json({ message: 'Connected' })
 })
 
 const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
@@ -87,7 +102,6 @@ const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
   await foundUser.save()
   res.json(foundUser.marketSearchFilters)
 })
-
 const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
 {
   const { index, filterToRemove } = req.body
@@ -113,8 +127,6 @@ const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
 
 
 
-
-
 const fetchUsersConfirmedPatterns = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId).select('confirmedStocks').populate({
@@ -125,6 +137,7 @@ const fetchUsersConfirmedPatterns = asyncHandler(async (req, res) =>
 
   res.json(foundUser.confirmedStocks)
 })
+
 
 
 const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
@@ -155,6 +168,9 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 
 })
 
+
+
+
 const resetUser = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId)
@@ -173,10 +189,11 @@ const resetUser = asyncHandler(async (req, res) =>
   res.json({ m: 'reset' })
 })
 
-
 module.exports = {
   userLoginDataFetch,
   fetchUserMacroWatchListsWithTickerData,
+  recordUsersMostRecentMarketPageSearch,
+  fetchUsersMarketSearchProgress,
   createUserSavedMarketFilter,
   removeUserSavedMarketFilter,
   fetchUsersConfirmedPatterns,

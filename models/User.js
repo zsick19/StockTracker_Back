@@ -11,6 +11,13 @@ const marketSearchFilter = new mongoose.Schema({
   }
 }, { _id: false })
 
+const marketSearchProgressSchema = new mongoose.Schema({
+  mostRecentPage: Number,
+  filterParams: {
+    type: Map, of: String
+  },
+  resultsPerPage: Number
+}, { _id: false })
 
 const userSchema = new mongoose.Schema({
   spyChartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
@@ -20,11 +27,12 @@ const userSchema = new mongoose.Schema({
 
   macroChartedStocks: [{ type: mongoose.Schema.Types.ObjectId, ref: "MacroChartedStock" }],
   defaultMacroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
-  
+
   macroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
 
 
   marketSearchFilters: [{ type: marketSearchFilter, default: [] }],
+  marketSearchProgress: { type: marketSearchProgressSchema },
   personalWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
 
   unConfirmedPatterns: [{ type: String, default: [] }],
