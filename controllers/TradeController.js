@@ -86,8 +86,8 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   if (updateEnterExitPlan)
   {
     updateEnterExitPlan.plan.enterPrice = purchasePrice
-    updateEnterExitPlan.enterTradeDate = new Date()
-    
+    updateEnterExitPlan.tradeEnterDate = new Date()
+
     updateEnterExitPlan.plan.percents = [calcPercent(updateEnterExitPlan.plan.stopLossPrice),
     calcPercent(updateEnterExitPlan.plan.enterBufferPrice),
     calcPercent(updateEnterExitPlan.plan.exitBufferPrice),

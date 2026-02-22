@@ -181,7 +181,7 @@ const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>
 
 
   // //if there exists a plan, remove the plan and send message to stock tracker to remove tracking
-  let taskData = { remove: true, tickerSymbol: Array.from(setForRemoval), userId: req.userId }
+  let taskData = { remove: true, tickerSymbol: removeTheseTickers, userId: req.userId }
   console.log(taskData)
   sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
 
