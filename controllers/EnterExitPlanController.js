@@ -39,13 +39,18 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   if (createdEnterExitPlannedStock)
   {
-    foundChartableStock.status = 3
+    if (foundChartableStock.status < 3) { foundChartableStock.status = 2 }
     foundChartableStock.plannedId = createdEnterExitPlannedStock._id
     await foundChartableStock.save()
 
     foundUser.planAndTrackedStocks.push(createdEnterExitPlannedStock)
     await foundUser.save()
+
+
   }
+
+
+
 
   let pricePlan = [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
   function getInsertionIndexLinear(arr, num)

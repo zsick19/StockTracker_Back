@@ -9,7 +9,7 @@ const usersStockHistory = new mongoose.Schema({
 const stockHistorySchema = new mongoose.Schema({
     symbol: String,
     chartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
-    history: [{ type: usersStockHistory }],
+    mostRecentHistory: { type: usersStockHistory, default: { action: 'patterned', date: Date.now() } },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true, require: true }
 });
 

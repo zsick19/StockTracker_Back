@@ -22,8 +22,16 @@ const updateUserChartingPerChartId = asyncHandler(async (req, res) =>
   const chartingUpdate = req.body
   const foundChartableStock = await ChartableStock.findById(chartId)
   foundChartableStock.charting = chartingUpdate
-  if (foundChartableStock.status < 3) foundChartableStock.status = 2
+  if (foundChartableStock.status < 2) 
+  {
+    foundChartableStock.status = 1
+    const foundHistory = await StockHistory.find({ userId: req.userId, symbol: foundChartableStock.tickerSymbol })
+    foundHistory.mostRecentHistory = { action: 'charted', date: new Date() }
+    await foundHistory.save()
+  }
+
   await foundChartableStock.save()
+
   res.json(chartingUpdate)
 })
 

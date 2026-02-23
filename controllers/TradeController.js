@@ -80,7 +80,7 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     averagePurchasePrice: purchasePrice,
   })
 
-  const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 4 })
+  const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 3 })
 
   const updateEnterExitPlan = await EnterExitPlannedStock.findById(enterExitPlanId)
   if (updateEnterExitPlan)
@@ -155,7 +155,10 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
 
         foundTradeRecord.exitGain = parseFloat(((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) * positionSizeToClose).toFixed(2))
         foundTradeRecord.exitGainPercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) / foundTradeRecord.averagePurchasePrice) * 100).toFixed(2))
-        foundTradeRecord.exitMovePercent = parseFloat(((foundTradeRecord.averageSellPrice / foundTradeRecord.tradingPlanPrices[4]) * 100).toFixed(2))
+
+        foundTradeRecord.exitMovePercent =
+          parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.tradingPlanPrices[1])
+            / (foundTradeRecord.tradingPlanPrices[4] - foundTradeRecord.tradingPlanPrices[1])) * 100).toFixed(2))
 
 
         foundUser.confirmedStocks.pull(foundTradeRecord.enterExitPlanId)

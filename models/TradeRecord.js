@@ -31,7 +31,7 @@ const tradeRecordSchema = new mongoose.Schema({
     averagePurchasePrice: { type: Number },
     averageSellPrice: { type: Number },
 
-    enterDate: { type: Date, default: new Date() },
+    enterDate: { type: Date, default: Date.now },
     exitDate: { type: Date },
 
     exitGain: { type: Number },//exit price times total shares sold
