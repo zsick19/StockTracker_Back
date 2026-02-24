@@ -156,16 +156,25 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
         foundTradeRecord.exitGain = parseFloat(((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) * positionSizeToClose).toFixed(2))
         foundTradeRecord.exitGainPercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) / foundTradeRecord.averagePurchasePrice) * 100).toFixed(2))
 
-        foundTradeRecord.exitMovePercent =
-          parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.tradingPlanPrices[1])
-            / (foundTradeRecord.tradingPlanPrices[4] - foundTradeRecord.tradingPlanPrices[1])) * 100).toFixed(2))
+        foundTradeRecord.exitMovePercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.tradingPlanPrices[1]) / (foundTradeRecord.tradingPlanPrices[4] - foundTradeRecord.tradingPlanPrices[1])) * 100).toFixed(2))
 
 
-        foundUser.confirmedStocks.pull(foundTradeRecord.enterExitPlanId)
-        foundUser.planAndTrackedStocks.pull(foundTradeRecord.enterExitPlanId)
+
+        const foundConfirmed = await ChartableStock.findOneAndDelete(foundTradeRecord.enterExitPlanId)
+        if (foundConfirmed) foundUser.confirmedStocks.pull(foundConfirmed._id)
+
+        const foundPlan = await EnterExitPlannedStock.findOneAndDelete(foundTradeRecord.enterExitPlanId)
+        if (foundPlan) foundUser.planAndTrackedStocks.pull(foundPlan._id)
+
+        const foundHistory = await StockHistory.findOneAndDelete({ symbol: foundTradeRecord.tickerSymbol, userId: req.userId })
+        if (foundHistory) foundUser.userStockHistory.pull(foundHistory._id)
+          
+        console.log(foundConfirmed,foundPlan,foundHistory)
+
 
         foundUser.activeTradeRecords.pull(foundTradeRecord)
         foundUser.previousTradeRecords.push(foundTradeRecord)
+
         await foundUser.save()
 
         //send message to monitor to remove ticker

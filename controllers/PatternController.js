@@ -94,9 +94,11 @@ const syncConfirmRemovePatterns = asyncHandler(async (req, res) =>
 
     //update the user's stock history to reflect being confirmed
     let stockHistoryIdForUpdate = []
-    foundUser.userStockHistory.map((history) => { if (tickerSymbolsForConfirmed.includes(history.symbol)) { stockHistoryIdForUpdate.push(history._id) } })
-    await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $push: { "history": { action: 'confirmed', date: new Date() } } })
-    await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $set: { mostRecentHistory: { action: 'confirmed', date: new Date() } } })
+    foundUser.userStockHistory.map((history) =>
+    {
+      if (tickerSymbolsForConfirmed.includes(history.symbol)) { stockHistoryIdForUpdate.push(history._id) }
+    })
+    await StockHistory.updateMany({ _id: { $in: stockHistoryIdForUpdate } }, { $set: { mostRecentHistory: 'confirmed' } })
   }
 
 
@@ -142,8 +144,11 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
 
     const directConfirmed = await ChartableStock.create({ tickerSymbol: tickerToAdd, sector: tickerStockInfo.Sector, chartedBy: foundUser._id, status: -1 })
 
-    foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
+    foundUser.unConfirmedPatterns = foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
     foundUser.markModified('unConfirmedPatterns')
+
+
+
     foundUser.confirmedStocks.push(directConfirmed._id)
     foundUser.markModified('confirmedStocks')
 
@@ -152,17 +157,10 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
 
     if (possibleHistoryUpdateId)
     {
-
-      await StockHistory.updateOne({ _id: { $in: possibleHistoryUpdateId } }, { $set: { mostRecentHistory: { action: 'confirmed', date: new Date() } } })
-
+      await StockHistory.updateOne({ _id: { $in: possibleHistoryUpdateId } }, { $set: { mostRecentHistory: 'confirmed' } })
     } else
     {
-      const createdHistory = await StockHistory.create({
-        symbol: tickerToAdd, userId: req.userId,
-        // history: [{ action: 'confirmed', date: new Date() }],
-        mostRecentHistory: { action: 'confirmed', date: new Date() }
-      })
-
+      const createdHistory = await StockHistory.create({ symbol: tickerToAdd, userId: req.userId })
       foundUser.userStockHistory.push(createdHistory)
       foundUser.markModified('userStockHistory')
     }
@@ -230,12 +228,10 @@ const addListOfTickersDirectlyToUser = asyncHandler(async (req, res) =>
 
   if (possibleHistoryUpdateIds.length > 0)
   {
-    const result = await StockHistory.updateMany({ _id: { $in: possibleHistoryUpdateIds } }, { $push: { "history": { action: 'confirmed', date: new Date() } } })
-    await StockHistory.updateMany({ _id: { $in: possibleHistoryUpdateIds } }, { $set: { mostRecentHistory: { action: 'confirmed', date: new Date() } } })
-
+    await StockHistory.updateMany({ _id: { $in: possibleHistoryUpdateIds } }, { $set: { mostRecentHistory: 'confirmed' } })
   } else
   {
-    let historiesToBeCreated = directConfirmed.map((confirmed) => { return { symbol: confirmed.tickerSymbol, userId: req.userId, history: [{ action: 'confirmed', date: new Date() }] } })
+    let historiesToBeCreated = directConfirmed.map((confirmed) => { return { symbol: confirmed.tickerSymbol, userId: req.userId } })
     const createdHistory = await StockHistory.insertMany(historiesToBeCreated)
     foundUser.userStockHistory.push(createdHistory)
     foundUser.markModified('userStockHistory')

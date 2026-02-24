@@ -46,7 +46,7 @@ const removeChartableStock = asyncHandler(async (req, res) =>
 
   //find user and filter out the chartId
   const foundUser = await User.findById(removeChartResult.chartedBy)
-  foundUser.confirmedStocks = foundUser.confirmedStocks.filter(t => t.toString() !== removeChartResult._id)
+  foundUser.confirmedStocks.pull(removeChartResult._id)
   foundUser.markModified('confirmedStocks')
 
   //remove the history from the user
