@@ -20,6 +20,8 @@ const marketSearchProgressSchema = new mongoose.Schema({
 }, { _id: false })
 
 const userSchema = new mongoose.Schema({
+
+  accountPL: { type: mongoose.Schema.Types.ObjectId, ref: "AccountPL" },
   spyChartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
 
   confirmedStocks: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "ChartableStock" }],

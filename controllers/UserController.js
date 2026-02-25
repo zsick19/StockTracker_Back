@@ -8,8 +8,7 @@ const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
 const TradeRecord = require("../models/TradeRecord");
-
-const MacroChartedStock = require('../models/MacroChartedStock')
+const AccountPL = require('../models/AccountPL')
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -20,6 +19,7 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   if (!req.userId) return res.status(400).send("missing information");
 
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
+
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
   let taskData = { userId: foundUser._id }
@@ -28,6 +28,12 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   res.json(foundUser);
 });
 
+const fetchAccountPL = asyncHandler(async (req, res) =>
+{
+  const foundAccount = await AccountPL.findById(req.userId)
+  if (!foundAccount) res.status(404).json({ message: 'Account Not Found' })
+  res.json(foundAccount)
+})
 
 
 
@@ -191,6 +197,7 @@ const resetUser = asyncHandler(async (req, res) =>
 
 module.exports = {
   userLoginDataFetch,
+  fetchAccountPL,
   fetchUserMacroWatchListsWithTickerData,
   recordUsersMostRecentMarketPageSearch,
   fetchUsersMarketSearchProgress,

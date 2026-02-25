@@ -24,7 +24,7 @@ const depositWithdrawsSchema = new mongoose.Schema({
 
 
 const accountPLSchema = new mongoose.Schema({
-    accountBalance: Number,
+    accountDeposit: Number,
     cashBalance: Number,
     activeTrades: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TradeRecord', default: [] }],
     depositOrWithdraw: [depositWithdrawsSchema],

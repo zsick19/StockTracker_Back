@@ -22,6 +22,8 @@ const tradeRecordSchema = new mongoose.Schema({
     enterExitPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlannedStock', },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', },
     idealPercents: [Number],
+    idealTotalGain: Number,
+    idealTotalRisk: Number,
     purchaseRecords: [purchaseSchema],
     sellRecords: [sellSchema],
     atrAtPurchase: Number,

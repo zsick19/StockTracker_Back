@@ -73,6 +73,8 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     enterExitPlanId,
     idealPercents,
     idealGainPercent,
+    idealTotalGain: ((tradingPlanPrices[4] - tradingPlanPrices[1]) * positionSize).toFixed(2),
+    idealTotalRisk: ((tradingPlanPrices[1] - tradingPlanPrices[0]) * positionSize).toFixed(2),
     userId: foundUser._id,
     purchaseRecords: [{ purchasePrice, positionSize }],
     sellRecords: [],
@@ -168,8 +170,8 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
 
         const foundHistory = await StockHistory.findOneAndDelete({ symbol: foundTradeRecord.tickerSymbol, userId: req.userId })
         if (foundHistory) foundUser.userStockHistory.pull(foundHistory._id)
-          
-        console.log(foundConfirmed,foundPlan,foundHistory)
+
+        console.log(foundConfirmed, foundPlan, foundHistory)
 
 
         foundUser.activeTradeRecords.pull(foundTradeRecord)
