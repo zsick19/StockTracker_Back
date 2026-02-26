@@ -69,16 +69,27 @@ const lineHSchema = new mongoose.Schema({
     priceP1: { type: Number },
     dateCreated: { type: Date },
 }, { _id: false })
+const dailyZoneSchema = new mongoose.Schema({
+    low: { type: Number },
+    mid: { type: Number },
+    high: { type: Number },
+    close: { type: Number },
+    range: { type: Number },
+    trend: { type: Number },
+
+}, { _id: false })
 
 
 
 const macroChartedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
+    tickerTitle: String,
     dailyEM: dailyEMSchema,
     weeklyEM: weeklyEMSchema,
     monthlyEM: monthlyEMSchema,
     quarterlyEM: quarterlyEMSchema,
     standardDeviation: standardDeviationSchema,
+    dailyZone: dailyZoneSchema,
     gammaFlip: Number,
     oneDayToExpire: [Number],
     callWall: { type: Number },

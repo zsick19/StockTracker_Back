@@ -18,4 +18,6 @@ router.route("/keyLevels/singleMacro/:chartId")
     .get(ChartingController.fetchKeyLevelsData)
     .put(ChartingController.updateKeyLevelData)
 
+router.route("/keyLevels/dailyZones")
+    .post(ChartingController.updateDailyZones)
 module.exports = router;

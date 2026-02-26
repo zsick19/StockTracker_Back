@@ -123,6 +123,40 @@ const fetchMacroChartingAndKeyLevelData = asyncHandler(async (req, res) =>
   res.json(foundMacroStock)
 })
 
+const updateDailyZones = asyncHandler(async (req, res) =>
+{
+  const { zones } = req.body
+  if (!zones) return res.status(400).json({ message: 'Missing Zone Data' })
+
+
+  await process(zones)
+  async function process(zones)
+  {
+
+    console.log(zones)
+    for (const zone of zones)
+    {
+
+      const updateResult = await MacroChartedStock.findOne({ tickerSymbol: zone.ticker, chartedBy: req.userId })
+
+      if (!updateResult) return
+      updateResult.dailyZone = {
+        low: zone.low,
+        mid: zone.mid,
+        high: zone.high,
+        close: zone.close,
+        range: zone.range,
+        trend: zone.trend
+      }
+      await updateResult.save()
+    }
+  }
+
+
+
+  res.json({ m: 'connected' })
+})
+
 
 
 module.exports = {
@@ -131,5 +165,6 @@ module.exports = {
   fetchKeyLevelsData,
   updateKeyLevelData,
   removeChartableStock,
-  fetchMacroChartingAndKeyLevelData
+  fetchMacroChartingAndKeyLevelData,
+  updateDailyZones
 };

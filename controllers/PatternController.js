@@ -3,7 +3,6 @@ const StockHistory = require("../models/StockHistory");
 const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const { ObjectId } = require("mongodb");
-
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const Stock = require("../models/Stock");
 
@@ -146,8 +145,6 @@ const addConfirmedTickerDirectlyToUser = asyncHandler(async (req, res) =>
 
     foundUser.unConfirmedPatterns = foundUser.unConfirmedPatterns.filter((t) => t !== tickerToAdd)
     foundUser.markModified('unConfirmedPatterns')
-
-
 
     foundUser.confirmedStocks.push(directConfirmed._id)
     foundUser.markModified('confirmedStocks')
