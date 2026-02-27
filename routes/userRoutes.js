@@ -23,6 +23,8 @@ router.route("/watchlist/:userId")
 
 router.route('/watchlist/macro')
     .get(UserController.fetchUserMacroWatchListsWithTickerData)
+router.route('/watchlist/dailyMacroZones')
+    .get(UserController.fetchUsersMacroSectorDailyZones)
 
 router.route("/watchlist/:watchListId/edit")
     .put(WatchListController.renameUserWatchList)

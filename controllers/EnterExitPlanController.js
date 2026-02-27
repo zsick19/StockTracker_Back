@@ -5,7 +5,8 @@ const User = require("../models/User");
 const asyncHandler = require("express-async-handler");
 const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
-const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
+const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService');
+const TradeRecord = require("../models/TradeRecord");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -23,7 +24,7 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
 
-  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / exitPrice)
+  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / enterPrice)
 
   const createdEnterExitPlannedStock = await EnterExitPlannedStock.create({
     _id: foundChartableStock._id,
@@ -97,11 +98,28 @@ const updateEnterExitPlan = asyncHandler(async (req, res) =>
   if (!id || !enterPrice || !enterBufferPrice || !stopLossPrice || !exitBufferPrice || !exitPrice || !moonPrice || !percents) return res.status(400).json({ message: 'Missing required fields.' })
 
   const foundEnterExitPlan = await EnterExitPlannedStock.findById(id)
-  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / exitPrice)
+
+
+
+
+  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / enterPrice)
   foundEnterExitPlan.plan = { ...foundEnterExitPlan.plan, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents }
   foundEnterExitPlan.idealGPS = parseFloat((exitPrice - enterPrice).toFixed(2))
   foundEnterExitPlan.with1000DollarsIdealGain = parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2))
   await foundEnterExitPlan.save()
+
+
+  let foundTradeRecord = await TradeRecord.findById(id)
+  if (!foundTradeRecord) { foundTradeRecord = await TradeRecord.find({ tickerSymbol: foundEnterExitPlan.tickerSymbol, userId: req.userId }) }
+  if (foundTradeRecord)
+  {
+    let purchasePrice = foundTradeRecord.tradingPlanPrices[1]
+    foundTradeRecord.tradingPlanPrices = [stopLossPrice, purchasePrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
+    foundTradeRecord.idealPercents = [percents[0], percents[2], percents[3], percents[4], percents[5]]
+    foundTradeRecord.idealTotalGain = ((exitPrice - purchasePrice) * foundTradeRecord.availableShares).toFixed(2)
+    foundTradeRecord.idealTotalRisk = ((purchasePrice - stopLossPrice) * foundTradeRecord.availableShares).toFixed(2)
+    await foundTradeRecord.save()
+  }
 
   let taskData = {
     remove: false,

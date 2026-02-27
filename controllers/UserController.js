@@ -9,6 +9,7 @@ const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQServi
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
 const TradeRecord = require("../models/TradeRecord");
 const AccountPL = require('../models/AccountPL')
+const MacroChartedStock = require('../models/MacroChartedStock')
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -56,6 +57,22 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
     console.log(error)
   }
 })
+
+const fetchUsersMacroSectorDailyZones = asyncHandler(async (req, res) =>
+{
+  const populatedDailyZones = await WatchList.find({ title: 'Sectors', user: req.userId }).select('tickersContained -_id')
+  console.log(populatedDailyZones)
+  let macroIds = populatedDailyZones[0].tickersContained.map((macro) => new ObjectId(macro._id))
+  console.log(macroIds)
+
+  const results = await MacroChartedStock.find({ _id: { $in: macroIds } }).select({ dailyZone: 1, tickerSymbol: 1, _id: 0 })
+
+  if (results) { res.json(results) }
+  else { res.status(404).json({ message: 'error fetching macro zones' }) }
+
+})
+
+
 
 
 
@@ -202,6 +219,7 @@ module.exports = {
   recordUsersMostRecentMarketPageSearch,
   fetchUsersMarketSearchProgress,
   createUserSavedMarketFilter,
+  fetchUsersMacroSectorDailyZones,
   removeUserSavedMarketFilter,
   fetchUsersConfirmedPatterns,
   fetchUserEnterExitPlans,

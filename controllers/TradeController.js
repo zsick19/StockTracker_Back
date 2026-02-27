@@ -65,6 +65,7 @@ const createTradeRecord = asyncHandler(async (req, res) =>
 
   const foundUser = await User.findById(req.userId)
   const createdTradeRecord = await TradeRecord.create({
+    _id: enterExitPlanId,
     tickerSymbol,
     sector: tickerSector,
     atrAtPurchase,
