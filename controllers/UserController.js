@@ -61,15 +61,10 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
 const fetchUsersMacroSectorDailyZones = asyncHandler(async (req, res) =>
 {
   const populatedDailyZones = await WatchList.find({ title: 'Sectors', user: req.userId }).select('tickersContained -_id')
-  console.log(populatedDailyZones)
   let macroIds = populatedDailyZones[0].tickersContained.map((macro) => new ObjectId(macro._id))
-  console.log(macroIds)
 
   const results = await MacroChartedStock.find({ _id: { $in: macroIds } }).select({ dailyZone: 1, tickerSymbol: 1, _id: 0 })
-
-  if (results) { res.json(results) }
-  else { res.status(404).json({ message: 'error fetching macro zones' }) }
-
+  if (results) { res.json(results) } else { res.status(404).json({ message: 'error fetching macro zones' }) }
 })
 
 
