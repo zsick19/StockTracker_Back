@@ -36,6 +36,14 @@ const fetchAccountPL = asyncHandler(async (req, res) =>
   res.json(foundAccount)
 })
 
+const updateAccountRiskThreshold = asyncHandler(async (req, res) =>
+{
+  let { risk } = req.query
+  if (!risk) return res.status(400)
+  const foundAccount = await AccountPL.findByIdAndUpdate(req.userId, { riskThreshold: risk })
+  if (!foundAccount) res.status(404).json({ message: 'Account Not Found' })
+  res.json({ message: 'updated' })
+})
 
 
 const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
@@ -210,6 +218,7 @@ const resetUser = asyncHandler(async (req, res) =>
 module.exports = {
   userLoginDataFetch,
   fetchAccountPL,
+  updateAccountRiskThreshold,
   fetchUserMacroWatchListsWithTickerData,
   recordUsersMostRecentMarketPageSearch,
   fetchUsersMarketSearchProgress,

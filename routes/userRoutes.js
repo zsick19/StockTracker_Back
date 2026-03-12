@@ -8,6 +8,8 @@ router.route("/login")
 
 router.route("/account")
     .get(UserController.fetchAccountPL)
+router.route("/account/riskThreshold")
+    .get(UserController.updateAccountRiskThreshold)
 
 router.route("/marketSearch/filter")
     .post(UserController.createUserSavedMarketFilter)

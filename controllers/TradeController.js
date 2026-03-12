@@ -8,6 +8,7 @@ const Alpaca = require('@alpacahq/alpaca-trade-api');
 const TradeRecord = require("../models/TradeRecord");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
+const AccountPL = require("../models/AccountPL");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -82,6 +83,13 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     availableShares: positionSize,
     averagePurchasePrice: purchasePrice,
   })
+
+
+  const foundAccount = await AccountPL.findById(req.userId)
+  foundAccount.currentPositionRisk = foundAccount.currentPositionRisk + ((tradingPlanPrices[1] - tradingPlanPrices[0]) * positionSize)
+  console.log(foundAccount)
+  await foundAccount.save()
+
 
   const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 3 })
 
@@ -172,13 +180,17 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
         const foundHistory = await StockHistory.findOneAndDelete({ symbol: foundTradeRecord.tickerSymbol, userId: req.userId })
         if (foundHistory) foundUser.userStockHistory.pull(foundHistory._id)
 
-        console.log(foundConfirmed, foundPlan, foundHistory)
-
 
         foundUser.activeTradeRecords.pull(foundTradeRecord)
         foundUser.previousTradeRecords.push(foundTradeRecord)
 
         await foundUser.save()
+
+        const foundAccount = await AccountPL.findById(req.userId)
+        foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - foundTradeRecord.idealTotalRisk
+        await foundAccount.save()
+
+
 
         //send message to monitor to remove ticker
         let taskData = { remove: true, tickerSymbol: foundTradeRecord.tickerSymbol, userId: req.userId }

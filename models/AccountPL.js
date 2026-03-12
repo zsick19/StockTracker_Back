@@ -29,7 +29,9 @@ const accountPLSchema = new mongoose.Schema({
     activeTrades: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TradeRecord', default: [] }],
     depositOrWithdraw: [depositWithdrawsSchema],
     monthlyPL: [monthlyPLSchema],
-    dailyPL: [dailyPLSchema]
+    dailyPL: [dailyPLSchema],
+    currentPositionRisk: Number,
+    riskThreshold: Number
 });
 
 module.exports = mongoose.model("AccountPL", accountPLSchema);

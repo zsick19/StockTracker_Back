@@ -133,7 +133,6 @@ const updateDailyZones = asyncHandler(async (req, res) =>
   async function process(zones)
   {
 
-    console.log(zones)
     for (const zone of zones)
     {
 
