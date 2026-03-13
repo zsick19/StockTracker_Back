@@ -10,6 +10,8 @@ router.route("/:chartId")
 
 router.route('/macro/:macroChartId')
     .get(ChartingController.fetchMacroChartingAndKeyLevelData)
+    .post(ChartingController.updateMacroChartPerChartId)
+
 
 // router.route("/keyLevels/macros")
 //     .get(ChartingController.fetchUsersMacroKeyLevelsDate)

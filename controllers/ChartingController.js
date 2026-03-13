@@ -21,19 +21,37 @@ const updateUserChartingPerChartId = asyncHandler(async (req, res) =>
   const { chartId } = req.params;
   const chartingUpdate = req.body
   const foundChartableStock = await ChartableStock.findById(chartId)
+  if (!foundChartableStock) return res.status(404)
+
   foundChartableStock.charting = chartingUpdate
+  await foundChartableStock.save()
   if (foundChartableStock.status < 2) 
   {
     foundChartableStock.status = 1
     const foundHistory = await StockHistory.find({ userId: req.userId, symbol: foundChartableStock.tickerSymbol })
-    foundHistory.mostRecentHistory = { action: 'charted', date: new Date() }
-    await foundHistory.save()
+    if (foundHistory)
+    {
+      foundHistory.mostRecentHistory = { action: 'charted', date: new Date() }
+      await foundHistory.save()
+    }
   }
 
-  await foundChartableStock.save()
 
   res.json(chartingUpdate)
 })
+
+const updateMacroChartPerChartId = asyncHandler(async (req, res) =>
+{
+  const { macroChartId } = req.params;
+  const chartingUpdate = req.body
+  const foundMacroStock = await MacroChartedStock.findById(macroChartId)
+  if (!foundMacroStock) return res.status(404)
+  foundMacroStock.charting = chartingUpdate
+  await foundMacroStock.save()
+  res.json(chartingUpdate)
+})
+
+
 
 const removeChartableStock = asyncHandler(async (req, res) =>
 {
@@ -162,6 +180,7 @@ module.exports = {
   fetchChartingAndKeyLevelData,
   updateUserChartingPerChartId,
   fetchKeyLevelsData,
+  updateMacroChartPerChartId,
   updateKeyLevelData,
   removeChartableStock,
   fetchMacroChartingAndKeyLevelData,
