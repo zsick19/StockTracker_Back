@@ -5,7 +5,10 @@ const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQServi
 const User = require("../models/User");
 const StockHistory = require("../models/StockHistory");
 const MacroChartedStock = require("../models/MacroChartedStock");
-
+const Alpaca = require('@alpacahq/alpaca-trade-api');
+// const { subDays } = require("date-fns/subDays");
+const { nextMonday, isSameDay, subDays, isSameMonth } = require('date-fns')
+const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params;
@@ -174,6 +177,119 @@ const updateDailyZones = asyncHandler(async (req, res) =>
   res.json({ m: 'connected' })
 })
 
+const updateDailyExpectedMoves = asyncHandler(async (req, res) =>
+{
+  const { expectedMoves } = req.body
+
+  if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
+
+  let nonBarTickers = ['DJX', 'NDX', 'SPX', 'XSP']
+
+  for (const move of expectedMoves)
+  {
+    const foundUpdateResult = await MacroChartedStock.findOne({ tickerSymbol: move.ticker, chartedBy: req.userId })
+    if (!foundUpdateResult && !nonBarTickers.includes(move.ticker))
+    {
+      let today = new Date()
+      const data = await alpaca.getBarsV2(missingTicker, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subDays(today, 365), end: today });
+      const candleData = []
+      for await (let singleStock of data) { candleData.push(singleStock) }
+      if (candleData.length !== 0)
+      {
+        const createdMacro = await MacroChartedStock.create({
+          tickerSymbol: missingTicker, chartedBy: req.userId,
+          dailyEM: { iVolDailyEMLower: move.iVolLower, iVolDailyEMUpper: move.iVolUpper },
+          standardDeviation: { sigma: move.sigma, close: move.priorClose }
+        })
+      }
+    }
+    else
+    {
+      foundUpdateResult.dailyEM = { ...foundUpdateResult.dailyEM, iVolDailyEMLower: move.iVolLower, iVolDailyEMUpper: move.iVolUpper, lastUpdated: new Date() }
+      foundUpdateResult.standardDeviation = { sigma: move.sigma, close: move.priorClose }
+      await foundUpdateResult.save()
+    }
+  }
+
+  res.json({ message: 'updated' })
+})
+
+
+const updateWeeklyExpectedMoves = asyncHandler(async (req, res) =>
+{
+  const { expectedMoves } = req.body
+  if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
+  let today = new Date()
+  let monday = nextMonday(today)
+
+  for (const move of expectedMoves)
+  {
+    const foundUpdateResult = await MacroChartedStock.findOne({ tickerSymbol: move.ticker, chartedBy: req.userId })
+    if (foundUpdateResult)
+    {
+      foundUpdateResult.weeklyEM = {
+        ...foundUpdateResult.weeklyEM, iVolWeeklyEMLower: move.iVolLower,
+        iVolWeeklyEMUpper: move.iVolUpper, lastUpdated: today,
+        weeklyClose: move.priorClose, sigma: move.sigma
+      }
+
+      let dateOfLastPreviousWeek = foundUpdateResult.weeklyEM.previousWeeklyEM.at(-1)?.startDate
+
+      if (!isSameDay(new Date(monday), new Date(dateOfLastPreviousWeek)) || !dateOfLastPreviousWeek)
+      {
+        foundUpdateResult.weeklyEM.previousWeeklyEM.push({ startDate: monday, upper: move.iVolUpper, lower: move.iVolLower })
+      }
+      await foundUpdateResult.save()
+    }
+  }
+
+  res.json({ message: 'updated' })
+})
+
+const updateMonthlyExpectedMoves = asyncHandler(async (req, res) =>
+{
+  const { expectedMoves } = req.body
+  if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
+
+  const today = new Date()
+  for (const move of expectedMoves)
+  {
+
+    const foundUpdateResult = await MacroChartedStock.findOne({ tickerSymbol: move.ticker, chartedBy: req.userId })
+    if (foundUpdateResult)
+    {
+      foundUpdateResult.monthlyEM = {
+        ...foundUpdateResult.monthlyEM,
+        monthLowerEM: move.iVolLower,
+        monthUpperEM: move.iVolUpper,
+        sigma: move.sigma,
+        monthlyClose: move.priorClose,
+        lastUpdated: today
+      }
+
+      let dateOfLastPreviousMonth = foundUpdateResult.previousMonthlyEM?.at(-1)?.startDate
+      if (!dateOfLastPreviousMonth || !isSameMonth(today, new Date(dateOfLastPreviousMonth)))
+      {
+        foundUpdateResult.monthlyEM.previousMonthlyEM.push({ startDate: today, upper: move.iVolUpper, lower: move.iVolLower })
+      }
+      await foundUpdateResult.save()
+    }
+  }
+
+
+  res.json({ message: 'updated' })
+
+})
+
+const updateQuarterlyExpectedMoves = asyncHandler(async (req, res) =>
+{
+  const { expectedMoves } = req.body
+  if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
+  console.log(expectedMoves)
+  res.json({ message: 'updated' })
+
+})
+
 
 
 module.exports = {
@@ -184,5 +300,9 @@ module.exports = {
   updateKeyLevelData,
   removeChartableStock,
   fetchMacroChartingAndKeyLevelData,
-  updateDailyZones
+  updateDailyZones,
+  updateDailyExpectedMoves,
+  updateWeeklyExpectedMoves,
+  updateMonthlyExpectedMoves,
+  updateQuarterlyExpectedMoves
 };

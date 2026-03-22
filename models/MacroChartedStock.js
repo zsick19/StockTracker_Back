@@ -69,6 +69,34 @@ const lineHSchema = new mongoose.Schema({
     priceP1: { type: Number },
     dateCreated: { type: Date },
 }, { _id: false })
+
+const volumeNodeSchema = new mongoose.Schema({
+    id: { type: Number },
+    price: { type: Number },
+    dateCreated: { type: Date }
+}, { _id: false })
+
+//planning schemas
+const enterExitLineSchema = new mongoose.Schema({
+    enterDate: { type: Date },
+    enterPrice: { type: Number },
+    enterBufferPrice: { type: Number },
+    stopLossPrice: { type: Number },
+    exitPrice: { type: Number },
+    exitBufferPrice: { type: Number },
+    moonPrice: { type: Number },
+    percents: [Number],
+    dateCreated: { type: Date }
+}, { _id: false })
+
+const supportResistanceSchema = new mongoose.Schema({
+    id: { type: Number },
+    priceP1: { type: Number },
+    priceP2: { type: Number },
+    isResistance: Boolean,
+    dateCreated: { type: Date }
+}, { _id: false })
+
 const dailyZoneSchema = new mongoose.Schema({
     low: { type: Number },
     mid: { type: Number },
@@ -101,6 +129,13 @@ const macroChartedStockSchema = new mongoose.Schema({
         trendLinesId: { type: Number, default: 1 },
         linesH: [lineHSchema],
         linesHId: { type: Number, default: 1 },
+        highVolumeNodes: [volumeNodeSchema],
+        highVolumeNodesId: { type: Number, default: 1 },
+        lowVolumeNodes: [volumeNodeSchema],
+        lowVolumeNodesId: { type: Number, default: 1 },
+        enterExitLines: { type: enterExitLineSchema, default: {} },
+        supportResistanceLines: [supportResistanceSchema],
+        supportResistanceLinesId: { type: Number, default: 1 }
     },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });

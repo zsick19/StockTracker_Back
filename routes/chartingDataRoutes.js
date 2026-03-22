@@ -22,4 +22,14 @@ router.route("/keyLevels/singleMacro/:chartId")
 
 router.route("/keyLevels/dailyZones")
     .post(ChartingController.updateDailyZones)
+
+router.route('/keyLevels/dailyMacroExpectedMoves')
+    .post(ChartingController.updateDailyExpectedMoves)
+router.route('/keyLevels/weeklyMacroExpectedMoves')
+    .post(ChartingController.updateWeeklyExpectedMoves)
+router.route('/keyLevels/monthlyMacroExpectedMoves')
+    .post(ChartingController.updateMonthlyExpectedMoves)
+router.route('/keyLevels/quarterlyMacroExpectedMoves')
+    .post(ChartingController.updateQuarterlyExpectedMoves)
+
 module.exports = router;
