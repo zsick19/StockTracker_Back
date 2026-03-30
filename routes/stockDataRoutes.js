@@ -15,4 +15,7 @@ router.route("/tickerGroup")
 router.route('/marketSearch')
     .post(StockDataController.fetchMarketSearchStockData)
 
+router.route('/watchlist')
+    .post(StockDataController.fetchGroupTinyCharts)
+
 module.exports = router;

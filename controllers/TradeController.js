@@ -9,6 +9,8 @@ const TradeRecord = require("../models/TradeRecord");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
 const AccountPL = require("../models/AccountPL");
+const { isWeekend } = require("date-fns/isWeekend");
+const { previousFriday } = require("date-fns/previousFriday");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -24,17 +26,32 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
   {
     let mostRecentPrices = {}
     let previousClose = {}
+    let dailyCandles = {}
+    let openPrice = {}
 
     const tradesForMostRecentPrice = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
     const result = await alpaca.getSnapshots(tradesForMostRecentPrice)
+    let today = new Date()
+    if (isWeekend(today)) today = previousFriday(today)
+    today.setHours(4, 30)
+    let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today };
+    const tickerData = await alpaca.getMultiBarsV2(tradesForMostRecentPrice, options)
+
+    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords)
+    {
+      dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol)
+    }
+
     result.forEach((trade) =>
     {
       mostRecentPrices[trade.symbol] = trade.LatestTrade.Price
       previousClose[trade.symbol] = trade.PrevDailyBar.ClosePrice
+      openPrice[trade.symbol] = trade.DailyBar.OpenPrice
+
     })
 
 
-    res.json({ mostRecentPrices: mostRecentPrices, previousClose, activeTrades: foundTrades })
+    res.json({ mostRecentPrices: mostRecentPrices, previousClose, activeTrades: foundTrades, dailyCandles, openPrice })
   } catch (error)
   {
     res.status(500).json({ message: 'Error Fetching Prices' })

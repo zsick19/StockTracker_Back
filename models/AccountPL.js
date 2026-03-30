@@ -26,6 +26,8 @@ const depositWithdrawsSchema = new mongoose.Schema({
 const accountPLSchema = new mongoose.Schema({
     accountDeposit: Number,
     cashBalance: Number,
+    maxLossPerTradePercent: Number,
+    maxLossPerTradeDollar: Number,
     activeTrades: [{ type: mongoose.Schema.Types.ObjectId, ref: 'TradeRecord', default: [] }],
     depositOrWithdraw: [depositWithdrawsSchema],
     monthlyPL: [monthlyPLSchema],

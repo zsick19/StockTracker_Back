@@ -38,6 +38,8 @@ router.route("/watchlist/:watchListId/tickers")
 
 router.route("/enterExitPlans")
     .get(UserController.fetchUserEnterExitPlans)
+router.route('/enterExitPlans/tiny')
+    .get(UserController.fetchUsersTinyEnterExitPlans)
 
 router.route('/reset')
     .get(UserController.resetUser)

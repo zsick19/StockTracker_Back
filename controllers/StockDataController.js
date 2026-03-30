@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
-const { subDays, subBusinessDays, sub } = require('date-fns');
+const { subDays, subBusinessDays, sub, isWeekend, previousFriday } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 const Stock = require("../models/Stock");
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
@@ -138,11 +138,18 @@ const fetchGroupedStockData = asyncHandler(async (req, res) =>
     await retryOperation(async () =>
     {
 
-      let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: subDays(new Date(), 5).toISOString().slice(0, 10) };
+      let options = { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subDays(new Date(), 60).toISOString().slice(0, 10) };
       const tickerData = await alpaca.getMultiBarsV2(tickerGroup, options)
-
+      const latestTradeData = await alpaca.getLatestTrades(tickerGroup)
       let results = []
-      for await (let singleStock of tickerData) { results.push({ ticker: singleStock[0], candleData: singleStock[1] }) }
+
+      for await (let singleStock of tickerData)
+      {
+        results.push({ ticker: singleStock[0], candleData: singleStock[1], mostRecentPrice: latestTradeData.get(singleStock[0]).Price })
+
+      }
+
+
 
       res.json(results)
     })
@@ -209,6 +216,28 @@ const calculate14DayATR = asyncHandler(async (req, res) =>
   }
 })
 
+const fetchGroupTinyCharts = asyncHandler(async (req, res) =>
+{
+  let tickers = req.body
+  let { minIncrement } = req.query
+
+
+  let today = new Date()
+  if (isWeekend(today)) today = previousFriday(today)
+  today.setHours(7, 30)
+  try
+  {
+    let options = { timeframe: alpaca.newTimeframe(minIncrement, alpaca.timeframeUnit.MIN), start: today };
+    const tickerData = await alpaca.getMultiBarsV2(tickers, options)
+    let results = tickers.map((ticker) => tickerData.get(ticker))
+    res.json(results)
+  } catch (error)
+  {
+    res.status(500).json({ message: 'Error Collecting Ticker Data' })
+  }
+
+
+})
 
 
 
@@ -218,5 +247,6 @@ module.exports = {
   stockDataFetchWithLiveFeed,
   fetchMarketSearchStockData,
   fetchGroupedStockData,
-  calculate14DayATR
+  calculate14DayATR,
+  fetchGroupTinyCharts
 };

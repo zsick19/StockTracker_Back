@@ -9,7 +9,9 @@ const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQServi
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
 const TradeRecord = require("../models/TradeRecord");
 const AccountPL = require('../models/AccountPL')
-const MacroChartedStock = require('../models/MacroChartedStock')
+const MacroChartedStock = require('../models/MacroChartedStock');
+const { isWeekend } = require("date-fns/isWeekend");
+const { previousFriday } = require("date-fns/previousFriday");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -38,9 +40,16 @@ const fetchAccountPL = asyncHandler(async (req, res) =>
 
 const updateAccountRiskThreshold = asyncHandler(async (req, res) =>
 {
-  let { risk } = req.query
-  if (!risk) return res.status(400)
-  const foundAccount = await AccountPL.findByIdAndUpdate(req.userId, { riskThreshold: risk })
+  let { risk, maxLossPercent, maxLossDollar, deposit } = req.query
+  if (!risk && !maxLossPercent && !maxLossDollar && !deposit) return res.status(400)
+
+  let update = {}
+  if (risk !== 'undefined') update.riskThreshold = risk
+  if (maxLossPercent !== 'undefined') update.maxLossPerTradePercent = maxLossPercent
+  if (maxLossDollar !== 'undefined') update.maxLossPerTradeDollar = maxLossDollar
+  if (deposit !== 'undefined') update.accountDeposit = deposit
+
+  const foundAccount = await AccountPL.findByIdAndUpdate(req.userId, update)
   if (!foundAccount) res.status(404).json({ message: 'Account Not Found' })
   res.json({ message: 'updated' })
 })
@@ -194,6 +203,34 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 
 })
 
+const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
+{
+  const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol' }).lean().exec()
+
+  let plansFor5minTickers = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
+  try
+  {
+    if (plansFor5minTickers.length > 0)
+    {
+
+      let today = new Date()
+      if (isWeekend(today)) today = previousFriday(today)
+      let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today.toISOString().slice(0, 10) };
+      const tickerData = await alpaca.getMultiBarsV2(plansFor5minTickers, options)
+
+      let results = []
+      for await (let singlePlan of foundUser.planAndTrackedStocks)
+      {
+        results.push({ id: singlePlan.tickerSymbol, candleData: tickerData.get(singlePlan.tickerSymbol) })
+      }
+      res.json(results)
+    }
+  } catch (error)
+  {
+    res.status(500).json({ message: 'error fetching 5 minute charts ticker data' })
+    console.log(error)
+  }
+})
 
 
 
@@ -227,5 +264,6 @@ module.exports = {
   removeUserSavedMarketFilter,
   fetchUsersConfirmedPatterns,
   fetchUserEnterExitPlans,
-  resetUser
+  resetUser,
+  fetchUsersTinyEnterExitPlans
 };
