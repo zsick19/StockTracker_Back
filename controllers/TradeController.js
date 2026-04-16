@@ -104,7 +104,7 @@ const createTradeRecord = asyncHandler(async (req, res) =>
 
   const foundAccount = await AccountPL.findById(req.userId)
   foundAccount.currentPositionRisk = foundAccount.currentPositionRisk + ((tradingPlanPrices[1] - tradingPlanPrices[0]) * positionSize)
-  console.log(foundAccount)
+
   await foundAccount.save()
 
 
@@ -220,8 +220,36 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
       break;
     case 'additionalBuy':
 
+      let runningTotal = 0
+      let totalPositionSize = 0
+      foundTradeRecord.purchaseRecords.map((record) =>
+      {
+
+        runningTotal = runningTotal + (record.purchasePrice * record.positionSize)
+        totalPositionSize = totalPositionSize + record.positionSize
+      })
+
+      let averagePositionPrice = (runningTotal + (tradePrice * positionSizeOfAlter)) / (totalPositionSize + positionSizeOfAlter)
+
+      foundTradeRecord.purchaseRecords.push({ purchasePrice: tradePrice, positionSize: positionSizeOfAlter, purchaseDate: new Date() })
+      foundTradeRecord.availableShares = foundTradeRecord.availableShares + positionSizeOfAlter
+      foundTradeRecord.averagePurchasePrice = averagePositionPrice
+
+      foundTradeRecord.tradingPlanPrices[1] = parseFloat(averagePositionPrice.toFixed(2))
+
+      let percents = foundTradeRecord.tradingPlanPrices.map((price, i) => calcPercent(price, averagePositionPrice))
+      foundTradeRecord.idealPercents = percents.splice(1, 1)
+      foundTradeRecord.idealTotalGain = (foundTradeRecord.tradingPlanPrices[4] - averagePositionPrice) * foundTradeRecord.availableShares
+      let originalRisk = foundTradeRecord.idealTotalRisk
+      foundTradeRecord.idealTotalRisk = Math.abs((foundTradeRecord.tradingPlanPrices[0] - averagePositionPrice) * foundTradeRecord.availableShares)
+
+      const foundAccount = await AccountPL.findById(req.userId)
+      foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - originalRisk + foundTradeRecord.idealTotalRisk
+      await foundAccount.save()
+
       break;
   }
+  function calcPercent(price, updatedAveragePrice) { return (Math.abs(parseFloat(((price - updatedAveragePrice) / updatedAveragePrice) * 100).toFixed(2))) }
 
   await foundTradeRecord.save()
   res.json(foundTradeRecord)

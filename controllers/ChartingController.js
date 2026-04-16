@@ -7,8 +7,11 @@ const StockHistory = require("../models/StockHistory");
 const MacroChartedStock = require("../models/MacroChartedStock");
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 // const { subDays } = require("date-fns/subDays");
-const { nextMonday, isSameDay, subDays, isSameMonth, isMonday } = require('date-fns')
+const { nextMonday, isSameDay, subDays, isSameMonth, isMonday } = require('date-fns');
+const MacroTickerWatch = require("../models/MacroTickerWatch");
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
+
+
 const fetchChartingAndKeyLevelData = asyncHandler(async (req, res) =>
 {
   const { chartId } = req.params;
@@ -177,6 +180,52 @@ const updateDailyZones = asyncHandler(async (req, res) =>
   res.json({ m: 'connected' })
 })
 
+const updateEMForSTDAlerts = asyncHandler(async (req, res) =>
+{
+  const { expectedMoves } = req.body
+
+  if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
+
+  let nonBarTickers = ['DJX', 'NDX', 'SPX', 'XSP']
+
+  for (const move of expectedMoves)
+  {
+    const foundEMTicker = await MacroTickerWatch.findOne({ _id: move.ticker })
+
+    try
+    {
+
+      if (!foundEMTicker && !nonBarTickers.includes(move.ticker))
+      {
+        let today = new Date()
+        const data = await alpaca.getBarsV2(move.ticker, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subDays(today, 365), end: today });
+        const candleData = []
+        for await (let singleStock of data) { candleData.push(singleStock) }
+        if (candleData.length !== 0)
+        {
+          await MacroTickerWatch.create({ _id: move.ticker, watchInfo: [{ userId: req.userId, dailyEM: move.dailyEM }] })
+        }
+      } else if (!nonBarTickers.includes(move.ticker))
+      {
+        foundEMTicker.watchInfo = [{ userId: req.userId, dailyEM: move.dailyEM }]
+        await foundEMTicker.save()
+      }
+    } catch (error)
+    {
+      console.log(`Failed to Update ticker:${move.ticker}.`)
+    }
+
+  }
+
+  let taskData = {
+    update: 'daily'
+  }
+
+  sendRabbitMessage(req, res, rabbitQueueNames.updateEMAlertQueue, taskData)
+
+  res.json({ message: 'connected' })
+})
+
 const updateDailyExpectedMoves = asyncHandler(async (req, res) =>
 {
   const { expectedMoves } = req.body
@@ -191,8 +240,7 @@ const updateDailyExpectedMoves = asyncHandler(async (req, res) =>
     const foundUpdateResult = await MacroChartedStock.findOne({ tickerSymbol: move.ticker, chartedBy: req.userId })
     try
     {
-      if (!nonBarTickers.includes(move.ticker)) { break; }
-      if (!foundUpdateResult)
+      if (!foundUpdateResult && !nonBarTickers.includes(move.ticker))
       {
         let today = new Date()
         const data = await alpaca.getBarsV2(move.ticker, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subDays(today, 365), end: today });
@@ -207,7 +255,7 @@ const updateDailyExpectedMoves = asyncHandler(async (req, res) =>
           })
         }
       }
-      else
+      else if (foundUpdateResult)
       {
         foundUpdateResult.dailyEM = { ...foundUpdateResult.dailyEM, iVolDailyEMLower: move.iVolLower, iVolDailyEMUpper: move.iVolUpper, lastUpdated: new Date() }
         foundUpdateResult.standardDeviation = { sigma: move.sigma, close: move.priorClose }
@@ -312,5 +360,6 @@ module.exports = {
   updateDailyExpectedMoves,
   updateWeeklyExpectedMoves,
   updateMonthlyExpectedMoves,
-  updateQuarterlyExpectedMoves
+  updateQuarterlyExpectedMoves,
+  updateEMForSTDAlerts
 };

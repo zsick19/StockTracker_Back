@@ -32,4 +32,7 @@ router.route('/keyLevels/monthlyMacroExpectedMoves')
 router.route('/keyLevels/quarterlyMacroExpectedMoves')
     .post(ChartingController.updateQuarterlyExpectedMoves)
 
+router.route('/keyLevels/dailyEMAlerts')
+.post(ChartingController.updateEMForSTDAlerts)
+
 module.exports = router;

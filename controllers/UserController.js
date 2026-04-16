@@ -81,7 +81,27 @@ const fetchUsersMacroSectorDailyZones = asyncHandler(async (req, res) =>
   let macroIds = populatedDailyZones[0].tickersContained.map((macro) => new ObjectId(macro._id))
 
   const results = await MacroChartedStock.find({ _id: { $in: macroIds } }).select({ dailyZone: 1, tickerSymbol: 1, _id: 0 })
-  if (results) { res.json(results) } else { res.status(404).json({ message: 'error fetching macro zones' }) }
+
+  if (results)
+  {
+    let macroSectorTickers = results.map((r) => r.tickerSymbol)
+    let today = new Date()
+    today.setHours(4)
+    if (isWeekend(today)) today = previousFriday(today)
+
+    let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today.toISOString().slice(0, 10) };
+    const tickerData = await alpaca.getMultiBarsV2(macroSectorTickers, options)
+
+    let resultsForTransfer = {}
+    for await (let zone of results)
+    {
+      resultsForTransfer[zone.tickerSymbol] = { dailyZone: zone.dailyZone, candleData: tickerData.get(zone.tickerSymbol) }
+    }
+    res.json(resultsForTransfer)
+  } else
+  {
+    res.status(404).json({ message: 'error fetching macro zones' })
+  }
 })
 
 
