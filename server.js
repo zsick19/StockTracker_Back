@@ -48,6 +48,7 @@ app.use("/patterns", require("./routes/patternRoutes"));
 app.use("/enterExitPlan", require("./routes/enterExitPlanRoutes"))
 app.use("/trades", require("./routes/tradeRoutes"))
 app.use("/news", require('./routes/newsFeedRoutes'))
+app.use('/alerts', require('./routes/alertRoutes'))
 
 app.all("/*catch", (req, res) =>
 {

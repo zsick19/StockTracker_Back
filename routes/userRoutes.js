@@ -6,6 +6,12 @@ const WatchListController = require("../controllers/WatchListController");
 router.route("/login")
     .get(UserController.userLoginDataFetch);
 
+
+router.route('/streamRefresh')
+    .get(UserController.refreshUsersStreamingTickers)
+
+
+
 router.route("/account")
     .get(UserController.fetchAccountPL)
 router.route("/account/riskThreshold")

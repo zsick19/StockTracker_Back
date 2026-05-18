@@ -25,11 +25,30 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-  let taskData = { userId: foundUser._id }
+  let taskData = { userId: foundUser._id, refreshUsersStreamingTickers: true }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
 
   res.json(foundUser);
 });
+const refreshUsersStreamingTickers = asyncHandler(async (req, res) =>
+{
+  if (!req.userId) return res.status(400).send('Missing Information')
+  let taskData = {
+    userId: req.userId,
+    refreshDBTickersForStream: true
+  }
+  sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
+  res.json({ m: 'refreshed' })
+
+})
+
+
+
+
+
+
+
+
 
 const fetchAccountPL = asyncHandler(async (req, res) =>
 {
@@ -285,5 +304,6 @@ module.exports = {
   fetchUsersConfirmedPatterns,
   fetchUserEnterExitPlans,
   resetUser,
-  fetchUsersTinyEnterExitPlans
+  fetchUsersTinyEnterExitPlans,
+  refreshUsersStreamingTickers
 };

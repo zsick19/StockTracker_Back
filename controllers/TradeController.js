@@ -33,7 +33,7 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
     const result = await alpaca.getSnapshots(tradesForMostRecentPrice)
     let today = new Date()
     if (isWeekend(today)) today = previousFriday(today)
-    today.setHours(4, 30)
+    today.setHours(6, 30)
     let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today };
     const tickerData = await alpaca.getMultiBarsV2(tradesForMostRecentPrice, options)
 
@@ -47,7 +47,6 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
       mostRecentPrices[trade.symbol] = trade.LatestTrade.Price
       previousClose[trade.symbol] = trade.PrevDailyBar.ClosePrice
       openPrice[trade.symbol] = trade.DailyBar.OpenPrice
-
     })
 
 

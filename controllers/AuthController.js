@@ -91,6 +91,14 @@ const registerMacroStocksToUser = asyncHandler(async (req, res) =>
 })
 
 
+const refreshUsersStreamingTickers=asyncHandler(async(req,res)=>{
+
+
+  
+})
+
+
+
 module.exports = {
   registerNewTestUser,
   registerMacroStocksToUser
