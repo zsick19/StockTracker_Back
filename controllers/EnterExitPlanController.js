@@ -216,10 +216,23 @@ const removeGroupEnterExitPlan = asyncHandler(async (req, res) =>
 
 })
 
+const updateEnterExitCriteriaCheckoff = asyncHandler(async (req, res) =>
+{
+  const { enterExitId } = req.params
+  const criteria = req.query
+
+  const foundEnterExit = await EnterExitPlannedStock.findById(enterExitId)
+  foundEnterExit.checkOffCriteria = { ...foundEnterExit.checkOffCriteria, ...criteria }
+  await foundEnterExit.save()
+
+  res.json({ ticker: foundEnterExit.tickerSymbol, criteria })
+})
+
 module.exports = {
   initiateEnterExitPlan,
   togglePlanImportance,
   updateEnterExitPlan,
   removeEnterExitPlan,
-  removeGroupEnterExitPlan
+  removeGroupEnterExitPlan,
+  updateEnterExitCriteriaCheckoff
 };

@@ -218,7 +218,8 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
 {
   const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({
     path: 'planAndTrackedStocks',
-    select: 'tickerSymbol plan sector priceHitSinceTracked initialTrackingPrice dateAdded highImportance'
+    populate: 'priceAlerts',
+    select: 'tickerSymbol plan sector priceHitSinceTracked initialTrackingPrice dateAdded highImportance priceAlerts updateNeededDate checkOffCriteria'
   }).lean().exec()
 
   let plansForSnapshots = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
@@ -254,7 +255,8 @@ const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
 
       let today = new Date()
       if (isWeekend(today)) today = previousFriday(today)
-      let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today.toISOString().slice(0, 10) };
+      today.setHours(4)
+      let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today };
       const tickerData = await alpaca.getMultiBarsV2(plansFor5minTickers, options)
 
       let results = []

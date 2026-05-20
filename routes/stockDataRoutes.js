@@ -12,6 +12,9 @@ router.route('/atr/:ticker')
 router.route("/tickerGroup")
     .post(StockDataController.fetchGroupedStockData)
 
+router.route('/tickerGroup/rrg')
+    .post(StockDataController.fetchRRGStockCompareData)
+
 router.route('/marketSearch')
     .post(StockDataController.fetchMarketSearchStockData)
 

@@ -22,6 +22,17 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     priceHitSinceTracked: { type: Number, default: 0 },
     highImportance: Date,
     tradeEnterDate: Date,
+    updateNeededDate: Date,
+    checkOffCriteria: {
+        vpCheck: Boolean,
+        rsiCheck: Boolean,
+        macdCheck: Boolean,
+        stochasticCheck: Boolean,
+        vortexCheck: Boolean,
+        volCheck: Boolean,
+        emaCheck: Boolean
+    },
+    priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });

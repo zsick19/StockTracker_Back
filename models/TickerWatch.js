@@ -7,9 +7,16 @@ const watchSchema = new mongoose.Schema(
         pricePoints: [Number],
         purpose: Number,
         tradeStatus: Number,
-        
+
         aboveThisPriceAlert: [Number],
-        belowThisPriceAlert: [Number],
+        belowThisPriceAlert: [
+            {
+                price: Number,
+                alertId: { type: mongoose.Schema.Types.ObjectId, ref: "PriceAlert" },
+                seen: Boolean,
+                triggered: Boolean
+            }
+        ],
         includedInUserWatchList: { type: Boolean, default: false }
     }, { _id: false })
 

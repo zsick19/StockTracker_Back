@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema({
   defaultMacroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
 
   macroWatchLists: [{ type: mongoose.Schema.Types.ObjectId, ref: "WatchList" }],
-
+  priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
 
   marketSearchFilters: [{ type: marketSearchFilter, default: [] }],
   marketSearchProgress: { type: marketSearchProgressSchema },

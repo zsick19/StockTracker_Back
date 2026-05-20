@@ -20,4 +20,7 @@ router.route("/importance/:enterExitId")
 router.route("/viability")
     .delete(EnterExitPlanController.removeGroupEnterExitPlan)
 
+router.route('/criteriaCheckoff/:enterExitId')
+    .get(EnterExitPlanController.updateEnterExitCriteriaCheckoff)
+
 module.exports = router;

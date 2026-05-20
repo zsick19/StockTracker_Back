@@ -3,7 +3,7 @@ const router = express.Router();
 const AlertController = require('../controllers/AlertController')
 
 
-router.route('/')
+router.route('/:ticker/:chartId')
     .get(AlertController.markAlertSeenForTickerWatch)
     .post(AlertController.createAlertForTicker)
     .put(AlertController.updateAlertForTickerWatch)

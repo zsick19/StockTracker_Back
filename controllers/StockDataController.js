@@ -239,7 +239,44 @@ const fetchGroupTinyCharts = asyncHandler(async (req, res) =>
 
 })
 
+const fetchRRGStockCompareData = asyncHandler(async (req, res) =>
+{
+  const { tickerGroup, compareTicker, timeFrame } = req.body
+  if (!tickerGroup || !compareTicker) return res.status(400).json({ message: 'Missing required information' })
 
+  try
+  {
+    let start = new Date().setHours(4, 0, 0, 0)
+    let end = new Date()
+    let timeframeForAlpaca
+    if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
+    else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 2) }
+
+    switch (timeFrame.unitOfIncrement)
+    {
+      case "M": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN); break;
+      case "D": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.DAY); break;
+      case "W": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.WEEK); break;
+      case "H": timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.HOUR); break;
+    }
+
+    await retryOperation(async () =>
+    {
+      let results = []
+      const tickerData = await alpaca.getMultiBarsV2(tickerGroup, { timeframe: timeframeForAlpaca, start, end })
+      for await (let singleStock of tickerData) { results.push(singleStock[1]) }
+      const compareData = await alpaca.getBarsV2(compareTicker, { timeframe: timeframeForAlpaca, start, end })
+      const candleData = []
+      for await (let singleStock of compareData) { candleData.push(singleStock) }
+
+
+      res.json({ sectors: results, compare: { compareTicker, candleData } })
+    })
+  } catch (error)
+  {
+    res.status(500).json({ message: 'Error Fetching Ticker Data' })
+  }
+})
 
 
 
@@ -248,5 +285,6 @@ module.exports = {
   fetchMarketSearchStockData,
   fetchGroupedStockData,
   calculate14DayATR,
-  fetchGroupTinyCharts
+  fetchGroupTinyCharts,
+  fetchRRGStockCompareData
 };
