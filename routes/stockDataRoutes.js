@@ -4,6 +4,8 @@ const StockDataController = require("../controllers/StockDataController");
 
 router.route("/ticker/:ticker")
     .post(StockDataController.stockDataFetchWithLiveFeed)
+router.route("/date/:ticker")
+    .post(StockDataController.stockDataFetchByDate)
 
 router.route('/atr/:ticker')
     .get(StockDataController.calculate14DayATR)

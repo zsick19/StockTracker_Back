@@ -23,6 +23,8 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     highImportance: Date,
     tradeEnterDate: Date,
     updateNeededDate: Date,
+    watchForTomorrow: Date,
+    watchListTags: [String],
     checkOffCriteria: {
         vpCheck: Boolean,
         rsiCheck: Boolean,
@@ -31,6 +33,46 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         vortexCheck: Boolean,
         volCheck: Boolean,
         emaCheck: Boolean
+    },
+    correlationValues: {
+        SPY: Number,
+        IWM: Number,
+        QQQ: Number,
+        DIA: Number,
+        sector: Number
+    },
+    relevantCandleDate: { date: Date, created: Date },
+    dailyTickerValues: {
+        atr: Number,
+        rsi: Number,
+        ema9: Number,
+        ema50: Number,
+        ema200: Number,
+        PrevDailyBar: {
+            ClosePrice: Number,
+            HighPrice: Number,
+            LowPrice: Number,
+            TradeCount: Number,
+            OpenPrice: Number,
+            Timestamp: Date,
+            Volume: Number,
+            VWAP: Number
+        },
+        DailyBar: {
+            ClosePrice: Number,
+            HighPrice: Number,
+            LowPrice: Number,
+            TradeCount: Number,
+            OpenPrice: Number,
+            Timestamp: Date,
+            Volume: Number,
+            VWAP: Number
+        },
+        dateCalculated: Date,
+        yesterDayHigh: Number,
+        yesterDayClose: Number,
+        yesterDayLow: Number,
+        todayOpen: Number,
     },
     priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
     dateAdded: { type: Date, default: new Date() },

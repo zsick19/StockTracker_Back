@@ -7,6 +7,7 @@ const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService');
 const TradeRecord = require("../models/TradeRecord");
+const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI } = require("../Utility/technicalIndicators");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -24,7 +25,32 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
 
+
+  const startDate = subBusinessDays(new Date(), 180 + 10)
+  const dailyCandles = await alpaca.getBarsV2(foundChartableStock.tickerSymbol, {
+    timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY),
+    start: startDate
+  })
+  const candleData = [];
+  for await (let b of dailyCandles) { candleData.push(b); }
+
+
   let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / enterPrice)
+
+
+  const calculatedValues = {
+    ema9: calculateEMADataPoints(candleData, 9),
+    ema50: calculateEMADataPoints(candleData, 50),
+    ema200: calculateEMADataPoints(candleData, 200),
+    atr: calculateATR(candleData),
+    rsi: calculateCurrentSingleRSI(candleData),
+    PrevDailyBar: latestTradePrice?.PrevDailyBar || undefined,
+    DailyBar: latestTradePrice?.DailyBar || undefined,
+    dateCalculated: new Date()
+  }
+
+
+
 
   const createdEnterExitPlannedStock = await EnterExitPlannedStock.create({
     _id: foundChartableStock._id,
@@ -35,6 +61,7 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     idealGPS: parseFloat((exitPrice - enterPrice).toFixed(2)),
     with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2)),
     priceHitSinceTracked: 0,
+    dailyTickerValues: { ...calculatedValues },
     chartedBy: foundUser._id
   })
 
@@ -91,6 +118,42 @@ const togglePlanImportance = asyncHandler(async (req, res) =>
     res.json({ highImportance: undefined })
   }
 })
+const togglePlanForTomorrow = asyncHandler(async (req, res) =>
+{
+  const { enterExitId } = req.params
+  const markTomorrow = req.query.markTomorrow === 'true'
+
+  if (!enterExitId) return res.status(400).json({ message: 'Missing required information.' })
+  const markTomorrowDate = new Date()
+  if (markTomorrow)
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { watchForTomorrow: markTomorrowDate })
+    res.json({ watchForTomorrow: markTomorrowDate })
+  } else
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { watchForTomorrow: null })
+    res.json({ watchForTomorrow: undefined })
+  }
+})
+const togglePlanNeedsUpdate = asyncHandler(async (req, res) =>
+{
+  const { enterExitId } = req.params
+  const markUpdate = req.query.markUpdate === 'true'
+
+  if (!enterExitId) return res.status(400).json({ message: 'Missing required information.' })
+  const markUpdateDate = new Date()
+  if (markUpdate)
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { updateNeededDate: markUpdateDate })
+    res.json({ updateNeededDate: markUpdateDate })
+  } else
+  {
+    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { updateNeededDate: null })
+    res.json({ updateNeededDate: undefined })
+  }
+})
+
+
 
 const updateEnterExitPlan = asyncHandler(async (req, res) =>
 {
@@ -231,6 +294,8 @@ const updateEnterExitCriteriaCheckoff = asyncHandler(async (req, res) =>
 module.exports = {
   initiateEnterExitPlan,
   togglePlanImportance,
+  togglePlanForTomorrow,
+  togglePlanNeedsUpdate,
   updateEnterExitPlan,
   removeEnterExitPlan,
   removeGroupEnterExitPlan,

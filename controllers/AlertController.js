@@ -30,7 +30,7 @@ const createAlertForTicker = asyncHandler(async (req, res) =>
     if (alertAlreadyExists) return res.status(405).json({ m: 'Alert for ticker and price already exists' })
   }
 
-  const createdAlert = await PriceAlert.create({ ticker, price, priceBelow: aboveOrBelow, triggered: false, seen: false, userId: req.userId })
+  const createdAlert = await PriceAlert.create({ ticker, price, priceBelow: aboveOrBelow, triggered: false, seen: false, userId: req.userId, chartId })
 
   const updatedParent = await User.findByIdAndUpdate(req.userId, { $push: { priceAlerts: createdAlert._id } });
 
@@ -70,8 +70,31 @@ const markAlertSeenForTickerWatch = asyncHandler(async (req, res) =>
 
 const removeAlertForTickerWatch = asyncHandler(async (req, res) =>
 {
-  console.log(req.body)
-  res.json({ m: 'connected' })
+  const { alertId, chartId, ticker } = req.params
+  if (!alertId || !chartId || !ticker) return res.status(400).json({ m: 'Missing required info.' })
+
+  const foundTickerWatch = await TickerWatch.findById(ticker)
+  foundTickerWatch.watchInfo.forEach((t) =>
+  {
+    t.belowThisPriceAlert.pull(alertId)
+    t.aboveThisPriceAlert.pull(alertId)
+  })
+  await foundTickerWatch.save()
+
+  const foundUser = await User.findByIdAndUpdate(req.userId, { $pull: { priceAlerts: alertId } })
+  const foundEnterExit = await EnterExitPlannedStock.findByIdAndUpdate(chartId, { $pull: { priceAlerts: alertId } })
+
+  try
+  {
+    const foundAlert = await PriceAlert.findByIdAndDelete(alertId)
+    console.log(foundAlert)
+    res.json(foundAlert)
+
+  } catch (error)
+  {
+
+    res.status(500).json({ m: 'Error Deleting Alert' })
+  }
 })
 
 

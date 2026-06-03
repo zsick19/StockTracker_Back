@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 
 const priceAlertSchema = new mongoose.Schema({
-    userId:{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "User" },
+    userId: { type: mongoose.Schema.Types.ObjectId, default: [], ref: "User" },
+    chartId: { type: mongoose.Schema.Types.ObjectId, default: [], ref: "EnterExitPlannedStock" },
     price: { type: Number },
     ticker: String,
     priceBelow: Boolean,

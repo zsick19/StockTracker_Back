@@ -17,6 +17,12 @@ router.route("/remove/:enterExitId/history/:historyId")
 router.route("/importance/:enterExitId")
     .get(EnterExitPlanController.togglePlanImportance)
 
+router.route("/watchTomorrow/:enterExitId")
+    .get(EnterExitPlanController.togglePlanForTomorrow)
+
+router.route("/needsUpdate/:enterExitId")
+    .get(EnterExitPlanController.togglePlanNeedsUpdate)
+
 router.route("/viability")
     .delete(EnterExitPlanController.removeGroupEnterExitPlan)
 

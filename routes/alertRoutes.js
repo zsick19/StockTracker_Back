@@ -6,6 +6,8 @@ const AlertController = require('../controllers/AlertController')
 router.route('/:ticker/:chartId')
     .get(AlertController.markAlertSeenForTickerWatch)
     .post(AlertController.createAlertForTicker)
+
+router.route('/:ticker/:chartId/:alertId')
     .put(AlertController.updateAlertForTickerWatch)
     .delete(AlertController.removeAlertForTickerWatch)
 

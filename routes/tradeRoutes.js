@@ -6,6 +6,8 @@ const WatchListController = require("../controllers/WatchListController");
 
 router.route("/active")
     .get(TradeController.fetchUsersActiveTrades)
+router.route('/activeGraph')
+    .get(TradeController.fetchUsersActiveTradeGraphs)
 
 router.route('/enterPosition')
     .post(TradeController.createTradeRecord)

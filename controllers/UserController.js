@@ -12,6 +12,7 @@ const AccountPL = require('../models/AccountPL')
 const MacroChartedStock = require('../models/MacroChartedStock');
 const { isWeekend } = require("date-fns/isWeekend");
 const { previousFriday } = require("date-fns/previousFriday");
+const { subBusinessDays } = require("date-fns/subBusinessDays");
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -219,7 +220,6 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
   const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({
     path: 'planAndTrackedStocks',
     populate: 'priceAlerts',
-    select: 'tickerSymbol plan sector priceHitSinceTracked initialTrackingPrice dateAdded highImportance priceAlerts updateNeededDate checkOffCriteria'
   }).lean().exec()
 
   let plansForSnapshots = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
@@ -242,10 +242,10 @@ const fetchUserEnterExitPlans = asyncHandler(async (req, res) =>
   }
 
 })
-
 const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
 {
-  const foundUser = await User.findById(req.userId).select('planAndTrackedStocks').populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol' }).lean().exec()
+  const foundUser = await User.findById(req.userId).select('planAndTrackedStocks')
+    .populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol' }).lean().exec()
 
   let plansFor5minTickers = foundUser.planAndTrackedStocks.map((plan) => plan.tickerSymbol)
   try
@@ -254,8 +254,14 @@ const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
     {
 
       let today = new Date()
-      if (isWeekend(today)) today = previousFriday(today)
       today.setHours(4)
+      if (isWeekend(today))
+      {
+        today = previousThursday(today)
+      } else
+      {
+        today = subBusinessDays(today, 1)
+      }
       let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today };
       const tickerData = await alpaca.getMultiBarsV2(plansFor5minTickers, options)
 
@@ -272,6 +278,7 @@ const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
     console.log(error)
   }
 })
+
 
 
 

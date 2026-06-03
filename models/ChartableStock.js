@@ -81,7 +81,7 @@ const supportResistanceSchema = new mongoose.Schema({
   priceP1: { type: Number },
   priceP2: { type: Number },
   isResistance: Boolean,
-    dateCreated: { type: Date }
+  dateCreated: { type: Date }
 }, { _id: false })
 
 
@@ -112,7 +112,8 @@ const chartableStockSchema = new mongoose.Schema({
     lowVolumeNodesId: { type: Number, default: 1 },
     enterExitLines: { type: enterExitLineSchema, default: {} },
     supportResistanceLines: [supportResistanceSchema],
-    supportResistanceLinesId: { type: Number, default: 1 }
+    supportResistanceLinesId: { type: Number, default: 1 },
+    relevantCandleDate: { date: Date, created: Date },
   },
   status: { type: Number, default: 0 },
   dateAdded: { type: Date, default: new Date() },

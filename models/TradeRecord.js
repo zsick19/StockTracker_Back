@@ -29,7 +29,13 @@ const tradeRecordSchema = new mongoose.Schema({
     atrAtPurchase: Number,
     daysToCover: Number,
     availableShares: { type: Number, default: 0 },
-
+    atr: Number,
+    rsi: Number,
+    dailyEma: {
+        ema9: Number,
+        ema50: Number,
+        ema200: Number
+    },
     averagePurchasePrice: { type: Number },
     averageSellPrice: { type: Number },
 

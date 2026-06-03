@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
-const { subDays, subBusinessDays, sub, isWeekend, previousFriday } = require('date-fns');
+const { subDays, subBusinessDays, sub, isWeekend, previousFriday, previousThursday } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 const Stock = require("../models/Stock");
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
@@ -29,8 +29,8 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   let end = new Date()
   let timeframeForAlpaca
 
-  if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
-  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 2) }
+  if (timeFrame.unitOfDuration === 'Y') { start = subBusinessDays(start, 365) }
+  else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 10) }
 
   switch (timeFrame.unitOfIncrement)
   {
@@ -71,6 +71,54 @@ const stockDataFetchWithLiveFeed = asyncHandler(async (req, res) =>
   }
 
 });
+
+const stockDataFetchByDate = asyncHandler(async (req, res) =>
+{
+  const { ticker } = req.params;
+  const { timeFrame, start, end } = req.body
+
+  console.log(req.body)
+  if (!ticker || !timeFrame || ticker === 'undefined' || ticker === 'UNDEFINED') return res.status(400).send('Missing Request Information')
+
+  // let tickerInfo
+  // if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
+
+
+  let timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN);
+
+
+
+  try
+  {
+    await retryOperation(async () =>
+    {
+      const mostRecentPrice = await alpaca.getLatestTrade(ticker)
+      const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start });
+      const candleData = []
+      for await (let singleStock of data) { candleData.push(singleStock) }
+
+
+
+      // if (liveFeed)
+      // {
+      //   let taskData = { userId: req.userId, tickerSymbol: ticker }
+      //   sendRabbitMessage(req, res, rabbitQueueNames.singleGraphTickerQueue, taskData)
+      // }
+
+      res.json({ candleData, mostRecentPrice: mostRecentPrice })
+    })
+  } catch (error)
+  {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ message: 'error requesting stock data' })
+  }
+
+})
+
+
+
+
+
 
 const fetchMarketSearchStockData = asyncHandler(async (req, res) =>
 {
@@ -138,7 +186,7 @@ const fetchGroupedStockData = asyncHandler(async (req, res) =>
     await retryOperation(async () =>
     {
 
-      let options = { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subDays(new Date(), 60).toISOString().slice(0, 10) };
+      let options = { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subBusinessDays(new Date(), 60).toISOString().slice(0, 10) };
       const tickerData = await alpaca.getMultiBarsV2(tickerGroup, options)
       const latestTradeData = await alpaca.getLatestTrades(tickerGroup)
       let results = []
@@ -223,8 +271,10 @@ const fetchGroupTinyCharts = asyncHandler(async (req, res) =>
 
 
   let today = new Date()
-  if (isWeekend(today)) today = previousFriday(today)
+  if (isWeekend(today)) today = previousThursday(today)
+
   today.setHours(7, 30)
+  today = subBusinessDays(today, 1)
   try
   {
     let options = { timeframe: alpaca.newTimeframe(minIncrement, alpaca.timeframeUnit.MIN), start: today };
@@ -249,7 +299,7 @@ const fetchRRGStockCompareData = asyncHandler(async (req, res) =>
     let start = new Date().setHours(4, 0, 0, 0)
     let end = new Date()
     let timeframeForAlpaca
-    if (timeFrame.unitOfDuration === 'Y') { start = subDays(start, 365) }
+    if (timeFrame.unitOfDuration === 'Y') { start = subBusinessDays(start, 365) }
     else if (timeFrame.unitOfDuration === 'D') { start = subBusinessDays(start, timeFrame.duration + 2) }
 
     switch (timeFrame.unitOfIncrement)
@@ -282,6 +332,7 @@ const fetchRRGStockCompareData = asyncHandler(async (req, res) =>
 
 module.exports = {
   stockDataFetchWithLiveFeed,
+  stockDataFetchByDate,
   fetchMarketSearchStockData,
   fetchGroupedStockData,
   calculate14DayATR,

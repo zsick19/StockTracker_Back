@@ -9,8 +9,9 @@ const TradeRecord = require("../models/TradeRecord");
 const { sendRabbitMessage, rabbitQueueNames } = require("../config/rabbitMQService");
 const EnterExitPlannedStock = require("../models/EnterExitPlannedStock");
 const AccountPL = require("../models/AccountPL");
-const { isWeekend } = require("date-fns/isWeekend");
+const { isWeekend, subBusinessDays } = require("date-fns");
 const { previousFriday } = require("date-fns/previousFriday");
+const { calculateATR, calculateCurrentSingleRSI, calculateEMADataPoints } = require("../Utility/technicalIndicators");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -57,6 +58,44 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
   }
 
 })
+const fetchUsersActiveTradeGraphs = asyncHandler(async (req, res) =>
+{
+  const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords').populate("activeTradeRecords")
+  let foundTrades = [...foundUsersActiveTrades.activeTradeRecords]
+
+  if (foundTrades.length === 0) return res.json({ mostRecentPrices: [], activeTrades: [] })
+
+  try
+  {
+    let dailyCandles = {}
+    let snapShots = {}
+
+    let tickersForData = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
+    const result = await alpaca.getSnapshots(tickersForData)
+
+
+    let today = subBusinessDays(new Date(), 2)
+
+    let options = { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: today };
+    const tickerData = await alpaca.getMultiBarsV2(tickersForData, options)
+
+    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords)
+    {
+      dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol)
+    }
+
+    result.map((t) => snapShots[t.symbol] = t)
+
+    res.json({ activeTrades: foundTrades, dailyCandles, snapShots })
+  } catch (error)
+  {
+    res.status(500).json({ message: 'Error Fetching Prices' })
+  }
+
+})
+
+
+
 
 const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 {
@@ -72,10 +111,22 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   if (!tickerSymbol || !positionSize || !purchasePrice || !tradingPlanPrices || !enterExitPlanId || !idealPercents || !idealGainPercent) return res.status(400).json({ message: 'Missing Required Information' })
 
 
-  if (!atrAtPurchase || !daysToCover)
-  {
-    //fetch and calculate atr and days to cover
+  const startDate = subBusinessDays(new Date(), 180 + 10)
+  const dailyCandles = await alpaca.getBarsV2(tickerSymbol, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate })
+  const candleData = [];
+  for await (let b of dailyCandles) { candleData.push(b); }
+
+
+  let atr = calculateATR(candleData)
+  let rsi = calculateCurrentSingleRSI(candleData)
+  let emaCalc = {
+    ema9: calculateEMADataPoints(candleData, 9),
+    ema50: calculateEMADataPoints(candleData, 50),
+    ema200: calculateEMADataPoints(candleData, 200),
   }
+
+  //fetch and calculate atr and days to cover
+
 
   const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
   if (foundTradeRecord && !foundTradeRecord?.tradeComplete) return res.status(400).json({ message: 'Can not initiate a still open trade record.' })
@@ -85,7 +136,10 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     _id: enterExitPlanId,
     tickerSymbol,
     sector: tickerSector,
-    atrAtPurchase,
+    atr,
+    rsi,
+    dailyEma: { ...emaCalc },
+    
     daysToCover,
     tradingPlanPrices,
     enterExitPlanId,
@@ -258,6 +312,7 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
 
 module.exports = {
   fetchUsersActiveTrades,
+  fetchUsersActiveTradeGraphs,
   createTradeRecord,
   alterTradeRecord,
   fetchUsersTradeJournal
