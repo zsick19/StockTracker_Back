@@ -245,7 +245,7 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateDailyValuesPostClose()
+    // updateDailyValuesPostClose()
     cron.schedule('15 9 * * *', () => { trialForOptions() })
     cron.schedule('25 9 * * *', () => { updateOpenVolume() })
     cron.schedule('30 16 * * *', () => { updateDailyValuesPostClose() })

@@ -8,7 +8,7 @@
  * @param {number} enterBufferPercent - Distance below peak to trigger a structural downward cascade (e.g., 0.03 for 3%)
  * @returns {Object} Database write commands and updated pipeline status
  */
-function processNightlyPivotMaintenance(existingPlanPivots, todaysDailyCandle, enterBufferPercent = 0.03)
+function processNightlyCascadePivotMaintenance(existingPlanPivots, todaysDailyCandle, enterBufferPercent = 0.03)
 {
     if (!existingPlanPivots || existingPlanPivots.length === 0)
     {
