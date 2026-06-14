@@ -10,9 +10,8 @@ const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
 const TradeRecord = require("../models/TradeRecord");
 const AccountPL = require('../models/AccountPL')
 const MacroChartedStock = require('../models/MacroChartedStock');
-const { isWeekend } = require("date-fns/isWeekend");
-const { previousFriday } = require("date-fns/previousFriday");
-const { subBusinessDays } = require("date-fns/subBusinessDays");
+const { isWeekend, previousFriday, previousThursday, subBusinessDays } = require("date-fns");
+
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -28,6 +27,13 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 
   let taskData = { userId: foundUser._id, refreshUsersStreamingTickers: true }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
+
+
+
+
+
+
+
 
   res.json(foundUser);
 });
@@ -57,7 +63,6 @@ const fetchAccountPL = asyncHandler(async (req, res) =>
   if (!foundAccount) res.status(404).json({ message: 'Account Not Found' })
   res.json(foundAccount)
 })
-
 const updateAccountRiskThreshold = asyncHandler(async (req, res) =>
 {
   let { risk, maxLossPercent, maxLossDollar, deposit } = req.query
@@ -73,6 +78,8 @@ const updateAccountRiskThreshold = asyncHandler(async (req, res) =>
   if (!foundAccount) res.status(404).json({ message: 'Account Not Found' })
   res.json({ message: 'updated' })
 })
+
+
 
 
 const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
@@ -94,7 +101,6 @@ const fetchUserMacroWatchListsWithTickerData = asyncHandler(async (req, res) =>
     console.log(error)
   }
 })
-
 const fetchUsersMacroSectorDailyZones = asyncHandler(async (req, res) =>
 {
   const populatedDailyZones = await WatchList.find({ title: 'Sectors', user: req.userId }).select('tickersContained -_id')
@@ -252,7 +258,6 @@ const fetchUsersTinyEnterExitPlans = asyncHandler(async (req, res) =>
   {
     if (plansFor5minTickers.length > 0)
     {
-
       let today = new Date()
       today.setHours(4)
       if (isWeekend(today))

@@ -15,7 +15,8 @@ router.route('/enterPosition')
 router.route('/alter')
     .put(TradeController.alterTradeRecord)
 
-
+router.route('/:tradeId/updateRecord')
+    .put(TradeController.updateTradeRecordInfo)
 
 router.route("/journal")
     .get(TradeController.fetchUsersTradeJournal)

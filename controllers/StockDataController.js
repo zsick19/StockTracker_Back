@@ -77,7 +77,6 @@ const stockDataFetchByDate = asyncHandler(async (req, res) =>
   const { ticker } = req.params;
   const { timeFrame, start, end } = req.body
 
-  console.log(req.body)
   if (!ticker || !timeFrame || ticker === 'undefined' || ticker === 'UNDEFINED') return res.status(400).send('Missing Request Information')
 
   // let tickerInfo

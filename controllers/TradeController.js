@@ -16,11 +16,20 @@ const { calculateATR, calculateCurrentSingleRSI, calculateEMADataPoints } = requ
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
+
 const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 {
-  const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords').populate("activeTradeRecords")
-  let foundTrades = [...foundUsersActiveTrades.activeTradeRecords]
+  const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords -_id')
+    .populate({
+      path: "activeTradeRecords",
+      populate: {
+        path: 'enterExitPlanId',
+        select: 'plan -_id',
+        transform: (enterExitPlan) => { return enterExitPlan ? enterExitPlan.plan : {} }
+      }
+    })
 
+  let foundTrades = [...foundUsersActiveTrades.activeTradeRecords]
   if (foundTrades.length === 0) return res.json({ mostRecentPrices: [], activeTrades: [] })
 
   try
@@ -32,16 +41,14 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 
     const tradesForMostRecentPrice = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
     const result = await alpaca.getSnapshots(tradesForMostRecentPrice)
+
     let today = new Date()
     if (isWeekend(today)) today = previousFriday(today)
     today.setHours(4)
-    let options = { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today };
-    const tickerData = await alpaca.getMultiBarsV2(tradesForMostRecentPrice, options)
 
-    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords)
-    {
-      dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol)
-    }
+    const tickerData = await alpaca.getMultiBarsV2(tradesForMostRecentPrice, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: today })
+
+    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords) { dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol) }
 
     result.forEach((trade) =>
     {
@@ -60,7 +67,15 @@ const fetchUsersActiveTrades = asyncHandler(async (req, res) =>
 })
 const fetchUsersActiveTradeGraphs = asyncHandler(async (req, res) =>
 {
-  const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords').populate("activeTradeRecords")
+  const foundUsersActiveTrades = await User.findById(req.userId).select('activeTradeRecords -_id')
+    .populate({
+      path: "activeTradeRecords",
+      populate: {
+        path: 'enterExitPlanId',
+        select: 'plan -_id',
+        transform: (enterExitPlan) => { return enterExitPlan ? enterExitPlan.plan : {} }
+      }
+    })
   let foundTrades = [...foundUsersActiveTrades.activeTradeRecords]
 
   if (foundTrades.length === 0) return res.json({ mostRecentPrices: [], activeTrades: [] })
@@ -73,20 +88,13 @@ const fetchUsersActiveTradeGraphs = asyncHandler(async (req, res) =>
     let tickersForData = foundTrades.map((activeTrade) => activeTrade.tickerSymbol)
     const result = await alpaca.getSnapshots(tickersForData)
 
-
     let today = subBusinessDays(new Date(), 2)
+    const tickerData = await alpaca.getMultiBarsV2(tickersForData, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: today })
 
-    let options = { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: today };
-    const tickerData = await alpaca.getMultiBarsV2(tickersForData, options)
-
-    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords)
-    {
-      dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol)
-    }
-
+    for await (let singlePlan of foundUsersActiveTrades.activeTradeRecords) { dailyCandles[singlePlan.tickerSymbol] = tickerData.get(singlePlan.tickerSymbol) }
     result.map((t) => snapShots[t.symbol] = t)
-
     res.json({ activeTrades: foundTrades, dailyCandles, snapShots })
+
   } catch (error)
   {
     res.status(500).json({ message: 'Error Fetching Prices' })
@@ -97,12 +105,18 @@ const fetchUsersActiveTradeGraphs = asyncHandler(async (req, res) =>
 
 
 
+
+
+
+
 const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 {
   const foundUsersPreviousTrades = await User.findById(req.userId).select('previousTradeRecords').populate('previousTradeRecords')
   if (!foundUsersPreviousTrades) return res.status(404).json({ message: 'User not found.' })
   res.json(foundUsersPreviousTrades.previousTradeRecords)
 })
+
+
 
 
 const createTradeRecord = asyncHandler(async (req, res) =>
@@ -116,18 +130,6 @@ const createTradeRecord = asyncHandler(async (req, res) =>
   const candleData = [];
   for await (let b of dailyCandles) { candleData.push(b); }
 
-
-  let atr = calculateATR(candleData)
-  let rsi = calculateCurrentSingleRSI(candleData)
-  let emaCalc = {
-    ema9: calculateEMADataPoints(candleData, 9),
-    ema50: calculateEMADataPoints(candleData, 50),
-    ema200: calculateEMADataPoints(candleData, 200),
-  }
-
-  //fetch and calculate atr and days to cover
-
-
   const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
   if (foundTradeRecord && !foundTradeRecord?.tradeComplete) return res.status(400).json({ message: 'Can not initiate a still open trade record.' })
 
@@ -136,23 +138,20 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     _id: enterExitPlanId,
     tickerSymbol,
     sector: tickerSector,
-    atr,
-    rsi,
-    dailyEma: { ...emaCalc },
-    
-    daysToCover,
-    tradingPlanPrices,
     enterExitPlanId,
-    idealPercents,
-    idealGainPercent,
-    idealTotalGain: ((tradingPlanPrices[4] - tradingPlanPrices[1]) * positionSize).toFixed(2),
-    idealTotalRisk: ((tradingPlanPrices[1] - tradingPlanPrices[0]) * positionSize).toFixed(2),
     userId: foundUser._id,
     purchaseRecords: [{ purchasePrice, positionSize }],
     sellRecords: [],
     availableShares: positionSize,
     averagePurchasePrice: purchasePrice,
+
+    idealTotalGain: ((tradingPlanPrices[4] - tradingPlanPrices[1]) * positionSize).toFixed(2),
+    idealTotalRisk: ((tradingPlanPrices[1] - tradingPlanPrices[0]) * positionSize).toFixed(2),
+    idealGainPercent,
+
+    // idealPercents,
   })
+
 
 
   const foundAccount = await AccountPL.findById(req.userId)
@@ -163,32 +162,31 @@ const createTradeRecord = asyncHandler(async (req, res) =>
 
   const updateChartableStockStatus = await ChartableStock.findByIdAndUpdate(enterExitPlanId, { status: 3 })
 
+
+
   const updateEnterExitPlan = await EnterExitPlannedStock.findById(enterExitPlanId)
   if (updateEnterExitPlan)
   {
     updateEnterExitPlan.plan.enterPrice = purchasePrice
     updateEnterExitPlan.tradeEnterDate = new Date()
 
-    updateEnterExitPlan.plan.percents = [calcPercent(updateEnterExitPlan.plan.stopLossPrice),
-    calcPercent(updateEnterExitPlan.plan.enterBufferPrice),
-    calcPercent(updateEnterExitPlan.plan.exitBufferPrice),
-    calcPercent(updateEnterExitPlan.plan.exitPrice),
-    calcPercent(updateEnterExitPlan.plan.moonPrice)]
+    updateEnterExitPlan.highImportance = undefined
+    updateEnterExitPlan.watchForTomorrow = undefined
+
+    updateEnterExitPlan.plan.percents = [
+      calcPercent(updateEnterExitPlan.plan.stopLossPrice),
+      calcPercent(updateEnterExitPlan.plan.enterBufferPrice),
+      calcPercent(updateEnterExitPlan.plan.exitBufferPrice),
+      calcPercent(updateEnterExitPlan.plan.exitPrice),
+      calcPercent(updateEnterExitPlan.plan.moonPrice)
+    ]
     function calcPercent(price) { return (Math.abs(parseFloat(((price - purchasePrice) / purchasePrice) * 100).toFixed(2))) }
     await updateEnterExitPlan.save()
   }
 
-
-
-
-
-
-
-
   if (createdTradeRecord)
   {
     foundUser.activeTradeRecords.push(createdTradeRecord)
-    foundUser.planAndTrackedStocks.pull(enterExitPlanId)
     await foundUser.save()
 
     let taskData = { action: 'enter', tickerSymbol, userId: foundUser._id.toString(), tradeEnterPrice: purchasePrice }
@@ -204,7 +202,12 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
   const { action, tickerSymbol, tradeId, tradePrice, positionSizeOfAlter } = req.body
 
   if (!action || !tickerSymbol || !tradeId || !tradePrice || !positionSizeOfAlter) return res.status(400).json({ message: 'Missing required information.' })
-  const foundTradeRecord = await TradeRecord.findById(tradeId)
+  const foundTradeRecord = await TradeRecord.findById(tradeId).populate({
+    path: 'enterExitPlanId',
+    select: 'plan -_id',
+    transform: (enterExitPlan) => { return enterExitPlan ? enterExitPlan.plan : {} }
+
+  })
   if (!foundTradeRecord) return res.status(404).json({ message: 'Trade Record not found.' })
 
   const today = new Date()
@@ -237,8 +240,8 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
         foundTradeRecord.exitGain = parseFloat(((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) * positionSizeToClose).toFixed(2))
         foundTradeRecord.exitGainPercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.averagePurchasePrice) / foundTradeRecord.averagePurchasePrice) * 100).toFixed(2))
 
-        foundTradeRecord.exitMovePercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.tradingPlanPrices[1]) / (foundTradeRecord.tradingPlanPrices[4] - foundTradeRecord.tradingPlanPrices[1])) * 100).toFixed(2))
 
+        foundTradeRecord.exitMovePercent = parseFloat((((foundTradeRecord.averageSellPrice - foundTradeRecord.enterExitPlanId.enterPrice) / (foundTradeRecord.enterExitPlanId.exitPrice - foundTradeRecord.enterExitPlanId.enterPrice)) * 100).toFixed(2))
 
 
         const foundConfirmed = await ChartableStock.findOneAndDelete(foundTradeRecord.enterExitPlanId)
@@ -254,11 +257,12 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
         foundUser.activeTradeRecords.pull(foundTradeRecord)
         foundUser.previousTradeRecords.push(foundTradeRecord)
 
+
         await foundUser.save()
 
-        const foundAccount = await AccountPL.findById(req.userId)
-        foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - foundTradeRecord.idealTotalRisk
-        await foundAccount.save()
+        // const foundAccount = await AccountPL.findById(req.userId)
+        // foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - foundTradeRecord.idealTotalRisk
+        // await foundAccount.save()
 
 
 
@@ -267,9 +271,7 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
         sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
       }
       break;
-
     case 'partialSell':
-
       break;
     case 'additionalBuy':
 
@@ -277,43 +279,58 @@ const alterTradeRecord = asyncHandler(async (req, res) =>
       let totalPositionSize = 0
       foundTradeRecord.purchaseRecords.map((record) =>
       {
-
         runningTotal = runningTotal + (record.purchasePrice * record.positionSize)
         totalPositionSize = totalPositionSize + record.positionSize
       })
 
       let averagePositionPrice = (runningTotal + (tradePrice * positionSizeOfAlter)) / (totalPositionSize + positionSizeOfAlter)
-
       foundTradeRecord.purchaseRecords.push({ purchasePrice: tradePrice, positionSize: positionSizeOfAlter, purchaseDate: new Date() })
       foundTradeRecord.availableShares = foundTradeRecord.availableShares + positionSizeOfAlter
       foundTradeRecord.averagePurchasePrice = averagePositionPrice
 
-      foundTradeRecord.tradingPlanPrices[1] = parseFloat(averagePositionPrice.toFixed(2))
+      const updateEnterExitPlan = await EnterExitPlannedStock.findById(foundTradeRecord.enterExitPlanId)
 
-      let percents = foundTradeRecord.tradingPlanPrices.map((price, i) => calcPercent(price, averagePositionPrice))
-      foundTradeRecord.idealPercents = percents.splice(1, 1)
-      foundTradeRecord.idealTotalGain = (foundTradeRecord.tradingPlanPrices[4] - averagePositionPrice) * foundTradeRecord.availableShares
-      let originalRisk = foundTradeRecord.idealTotalRisk
-      foundTradeRecord.idealTotalRisk = Math.abs((foundTradeRecord.tradingPlanPrices[0] - averagePositionPrice) * foundTradeRecord.availableShares)
+      if (foundTradeRecord.averagePurchasePrice < foundTradeRecord.enterExitPlanId.stopLossPrice) { updateEnterExitPlan.plan.stopLossPrice = foundTradeRecord.averagePurchasePrice }
+      if (foundTradeRecord.averagePurchasePrice > foundTradeRecord.enterExitPlanId.enterBufferPrice) { updateEnterExitPlan.plan.enterBufferPrice = foundTradeRecord.averagePurchasePrice }
+      updateEnterExitPlan.plan.enterPrice = foundTradeRecord.averagePurchasePrice
 
-      const foundAccount = await AccountPL.findById(req.userId)
-      foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - originalRisk + foundTradeRecord.idealTotalRisk
-      await foundAccount.save()
+      foundTradeRecord.idealTotalGain = (updateEnterExitPlan.plan.exitPrice - averagePositionPrice) * foundTradeRecord.availableShares
+      foundTradeRecord.idealTotalRisk = Math.abs((updateEnterExitPlan.plan.stopLossPrice - averagePositionPrice) * foundTradeRecord.availableShares)
+
+      await updateEnterExitPlan.save()
+
+
+      // const foundAccount = await AccountPL.findById(req.userId)
+      // let originalRisk = foundTradeRecord.idealTotalRisk
+      // foundAccount.currentPositionRisk = foundAccount.currentPositionRisk - originalRisk + foundTradeRecord.idealTotalRisk
+      // await foundAccount.save()
 
       break;
   }
-  function calcPercent(price, updatedAveragePrice) { return (Math.abs(parseFloat(((price - updatedAveragePrice) / updatedAveragePrice) * 100).toFixed(2))) }
 
   await foundTradeRecord.save()
   res.json(foundTradeRecord)
 })
 
+const updateTradeRecordInfo = asyncHandler(async (req, res) =>
+{
+  const tradeId = req.params.tradeId
+  const { extentProb } = req.body
 
+  const foundTradeRecord = await TradeRecord.findById(tradeId)
+  if (!foundTradeRecord) return res.status(404)
+
+
+  foundTradeRecord.extentProb = { ...extentProb }
+  await foundTradeRecord.save()
+  res.json(foundTradeRecord)
+})
 
 module.exports = {
   fetchUsersActiveTrades,
   fetchUsersActiveTradeGraphs,
   createTradeRecord,
   alterTradeRecord,
-  fetchUsersTradeJournal
+  fetchUsersTradeJournal,
+  updateTradeRecordInfo
 };

@@ -13,6 +13,7 @@ const { logger, logEvents } = require("./middleware/logger");
 const authenticateToken = require("./middleware/authenticateToken");
 const amqp = require('amqplib');
 const { rabbitQueueNames } = require("./config/rabbitMQService");
+const { initScheduler } = require("./Utility/scheduler");
 
 const PORT = process.env.PORT || 3500;
 
@@ -70,7 +71,12 @@ app.use(errorHandler);
 mongoose.connection.once("open", () =>
 {
   console.log("Connected to MongoDB");
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}.`));
+
+  app.listen(PORT, () =>
+  {
+    console.log(`Server running on port ${PORT}.`)
+    initScheduler()
+  });
 });
 
 mongoose.connection.on("error", (err) =>
@@ -94,6 +100,7 @@ async function connectToRabbitMQ()
     await rabbitChannel.assertQueue(updateTrackingQueueName, { durable: true })
     await rabbitChannel.assertQueue(rabbitQueueNames.singleGraphTickerQueue, { durable: true })
     await rabbitChannel.assertQueue(rabbitQueueNames.updateEMAlertQueue, { durable: true })
+    await rabbitChannel.assertQueue(rabbitQueueNames.newsPassToAiAlert, { durable: false })
     console.log('Producer connected To RabbitMQ')
 
     app.locals.channel = rabbitChannel

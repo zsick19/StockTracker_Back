@@ -17,18 +17,29 @@ const tradeRecordSchema = new mongoose.Schema({
     tickerSymbol: { type: String, require: true },
     sector: { type: String },
     industry: { type: String },
-
-    tradingPlanPrices: [Number],
     enterExitPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlannedStock', },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', },
-    idealPercents: [Number],
-    idealTotalGain: Number,
-    idealTotalRisk: Number,
     purchaseRecords: [purchaseSchema],
     sellRecords: [sellSchema],
-    atrAtPurchase: Number,
-    daysToCover: Number,
     availableShares: { type: Number, default: 0 },
+    averagePurchasePrice: { type: Number },
+    averageSellPrice: { type: Number },
+    enterDate: { type: Date, default: Date.now },
+    exitDate: { type: Date },
+    exitGain: { type: Number },//exit price times total shares sold
+    exitGainPercent: { type: Number }, //enter price gain
+    exitMovePercent: Number, //how much of the move did we capture
+    tradeComplete: { type: Boolean, default: false },
+
+    idealTotalGain: Number,
+    idealTotalRisk: Number,
+
+
+    // idealPercents: [Number],
+    // tradingPlanPrices: [Number],
+    // relevantCandleDate: Date,
+    // atrAtPurchase: Number,
+    // daysToCover: Number,
     atr: Number,
     rsi: Number,
     dailyEma: {
@@ -36,16 +47,14 @@ const tradeRecordSchema = new mongoose.Schema({
         ema50: Number,
         ema200: Number
     },
-    averagePurchasePrice: { type: Number },
-    averageSellPrice: { type: Number },
-
-    enterDate: { type: Date, default: Date.now },
-    exitDate: { type: Date },
-
-    exitGain: { type: Number },//exit price times total shares sold
-    exitGainPercent: { type: Number }, //enter price gain
-    exitMovePercent: Number, //how much of the move did we capture
-    tradeComplete: { type: Boolean, default: false }
+    extentProb: {
+        openH: Number,
+        openL: Number,
+        midH: Number,
+        midL: Number,
+        closeH: Number,
+        closeL: Number
+    },
 })
 
 module.exports = mongoose.model('TradeRecord', tradeRecordSchema)

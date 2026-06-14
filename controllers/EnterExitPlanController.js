@@ -7,8 +7,8 @@ const { ObjectId } = require("mongodb");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService');
 const TradeRecord = require("../models/TradeRecord");
-const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI } = require("../Utility/technicalIndicators");
-
+const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI, calculateExtendedSessionProbabilities, calculateCompleteMorningMetrics } = require("../Utility/technicalIndicators");
+const { isToday, subBusinessDays } = require('date-fns')
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 
@@ -20,23 +20,19 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
 
   const foundUser = await User.findById(req.userId)
   if (!foundUser) return res.status(404).json({ message: 'User not found' })
+
   const foundChartableStock = await ChartableStock.findById(req.params.chartId)
   if (!foundChartableStock) return res.status(404).json({ message: 'Chart Not Found' })
 
-  const latestTradePrice = await alpaca.getLatestTrade(foundChartableStock.tickerSymbol)
 
 
   const startDate = subBusinessDays(new Date(), 180 + 10)
-  const dailyCandles = await alpaca.getBarsV2(foundChartableStock.tickerSymbol, {
-    timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY),
-    start: startDate
-  })
+  const dailyCandles = await alpaca.getBarsV2(foundChartableStock.tickerSymbol, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate })
   const candleData = [];
   for await (let b of dailyCandles) { candleData.push(b); }
 
 
-  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / enterPrice)
-
+  const snapShot = await alpaca.getSnapShot(foundChartableStock.tickerSymbol)
 
   const calculatedValues = {
     ema9: calculateEMADataPoints(candleData, 9),
@@ -44,8 +40,8 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     ema200: calculateEMADataPoints(candleData, 200),
     atr: calculateATR(candleData),
     rsi: calculateCurrentSingleRSI(candleData),
-    PrevDailyBar: latestTradePrice?.PrevDailyBar || undefined,
-    DailyBar: latestTradePrice?.DailyBar || undefined,
+    PrevDailyBar: snapShot?.PrevDailyBar || undefined,
+    DailyBar: snapShot?.DailyBar || undefined,
     dateCalculated: new Date()
   }
 
@@ -57,12 +53,15 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     tickerSymbol: foundChartableStock.tickerSymbol,
     sector: foundChartableStock.sector,
     plan: { enterPrice, enterBufferPrice, stopLossPrice, exitBufferPrice, exitPrice, moonPrice, percents, dateCreated },
-    initialTrackingPrice: latestTradePrice?.Price || undefined,
-    idealGPS: parseFloat((exitPrice - enterPrice).toFixed(2)),
-    with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2)),
-    priceHitSinceTracked: 0,
+    initialTrackingPrice: snapShot?.LatestTrade?.Price || undefined,
+    with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * Math.floor(1000 / enterPrice)).toFixed(2)),
     dailyTickerValues: { ...calculatedValues },
-    chartedBy: foundUser._id
+    chartedBy: foundUser._id,
+    idealGPS: parseFloat((exitPrice - enterPrice).toFixed(2)),
+
+
+
+    priceHitSinceTracked: 0,
   })
 
   if (createdEnterExitPlannedStock)
@@ -110,8 +109,33 @@ const togglePlanImportance = asyncHandler(async (req, res) =>
   const importantDate = new Date()
   if (markImportant)
   {
-    await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { highImportance: importantDate })
-    res.json({ highImportance: importantDate })
+    const foundEnterExitPlan = await EnterExitPlannedStock.findById(enterExitId)
+    foundEnterExitPlan.highImportance = importantDate
+
+    if (!foundEnterExitPlan?.extentProb || !isToday(new Date(foundEnterExitPlan.extentProb?.dateCalculated)))
+    {
+      const startDate = foundEnterExitPlan?.relevantCandleDate.date ? new Date(foundEnterExitPlan.relevantCandleDate.date) : subBusinessDays(new Date(), 45)
+      const fiveMinCandles = await alpaca.getBarsV2(foundEnterExitPlan.tickerSymbol, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
+      const candleData = [];
+      for await (let b of fiveMinCandles) { candleData.push(b); }
+
+      const probability = calculateExtendedSessionProbabilities(candleData)
+      foundEnterExitPlan.extentProb = {
+        openH: probability.morningSession.highPrintedPercent,
+        openL: probability.morningSession.lowPrintedPercent,
+        midH: probability.middaySession.highPrintedPercent,
+        midL: probability.middaySession.lowPrintedPercent,
+        closeH: probability.closingSession.highPrintedPercent,
+        closeL: probability.closingSession.lowPrintedPercent,
+        dateCalculated: new Date()
+      }
+
+      const morningMetrics = calculateCompleteMorningMetrics(candleData)
+      foundEnterExitPlan.morningMetrics = { upSide: { ...morningMetrics.upsideMetrics }, downSide: { ...morningMetrics.downsideMetrics }, dateCalculated: new Date() }
+    }
+    await foundEnterExitPlan.save()
+
+    res.json({ highImportance: importantDate, extentProb: foundEnterExitPlan.extentProb, morningMetrics: foundEnterExitPlan.morningMetrics })
   } else
   {
     await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { highImportance: null })
@@ -157,39 +181,23 @@ const togglePlanNeedsUpdate = asyncHandler(async (req, res) =>
 
 const updateEnterExitPlan = asyncHandler(async (req, res) =>
 {
-  const { id, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents } = req.body
+  const { id, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents, relevantHighs, relevantLows, institutionalPricePoints, } = req.body
   if (!id || !enterPrice || !enterBufferPrice || !stopLossPrice || !exitBufferPrice || !exitPrice || !moonPrice || !percents) return res.status(400).json({ message: 'Missing required fields.' })
 
   const foundEnterExitPlan = await EnterExitPlannedStock.findById(id)
 
-
-
-
-  let sharesToBuyWith1000DollarsIdeal = Math.floor(1000 / enterPrice)
   foundEnterExitPlan.plan = { ...foundEnterExitPlan.plan, stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice, percents }
   foundEnterExitPlan.idealGPS = parseFloat((exitPrice - enterPrice).toFixed(2))
-  foundEnterExitPlan.with1000DollarsIdealGain = parseFloat(((exitPrice - enterPrice) * sharesToBuyWith1000DollarsIdeal).toFixed(2))
+  foundEnterExitPlan.with1000DollarsIdealGain = parseFloat(((exitPrice - enterPrice) * Math.floor(1000 / enterPrice)).toFixed(2))
+
+
+  if (relevantHighs) foundEnterExitPlan.relevantHighs = relevantHighs
+  if (relevantLows) foundEnterExitPlan.relevantLows = relevantLows
+  if (institutionalPricePoints) foundEnterExitPlan.institutionalPricePoints = institutionalPricePoints
+
   await foundEnterExitPlan.save()
 
-
-  let foundTradeRecord = await TradeRecord.findById(id)
-  if (!foundTradeRecord) { foundTradeRecord = await TradeRecord.find({ tickerSymbol: foundEnterExitPlan.tickerSymbol, userId: req.userId }) }
-  if (foundTradeRecord)
-  {
-    let purchasePrice = foundTradeRecord.tradingPlanPrices[1]
-    foundTradeRecord.tradingPlanPrices = [stopLossPrice, purchasePrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
-    foundTradeRecord.idealPercents = [percents[0], percents[2], percents[3], percents[4], percents[5]]
-    foundTradeRecord.idealTotalGain = ((exitPrice - purchasePrice) * foundTradeRecord.availableShares).toFixed(2)
-    foundTradeRecord.idealTotalRisk = ((purchasePrice - stopLossPrice) * foundTradeRecord.availableShares).toFixed(2)
-    await foundTradeRecord.save()
-  }
-
-  let taskData = {
-    remove: false,
-    tickerSymbol: foundEnterExitPlan.tickerSymbol,
-    pricePoints: [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice]
-  }
-
+  let taskData = { remove: false, tickerSymbol: foundEnterExitPlan.tickerSymbol, pricePoints: [stopLossPrice, enterPrice, enterBufferPrice, exitBufferPrice, exitPrice, moonPrice] }
   sendRabbitMessage(req, res, rabbitQueueNames.updateTrackingQueueName, taskData)
 
   res.json(foundEnterExitPlan)
