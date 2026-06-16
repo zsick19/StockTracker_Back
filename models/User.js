@@ -24,6 +24,8 @@ const userSchema = new mongoose.Schema({
   accountPL: { type: mongoose.Schema.Types.ObjectId, ref: "AccountPL" },
   spyChartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
 
+  oldestRelevantDateToFetch: Date,
+
   confirmedStocks: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "ChartableStock" }],
   planAndTrackedStocks: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PlannedStock" }],
 

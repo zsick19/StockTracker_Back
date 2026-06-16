@@ -5,6 +5,11 @@ const relevantPriceSchema = new mongoose.Schema({
     price: Number
 }, { _id: false })
 
+const pointsSchema = new mongoose.Schema({
+    date: Date,
+    price: Number
+}, { _id: false })
+
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
     sector: { type: String },
@@ -33,8 +38,38 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         volCheck: Boolean,
         emaCheck: Boolean
     },
-    greatestCorrelation: String,
-    spyBetaValue: Number,
+    institutionalPricePoints: [relevantPriceSchema],
+    relevantHighs: [relevantPriceSchema],
+    relevantLows: [relevantPriceSchema],
+    priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
+
+
+
+    dailyTickerValues: {
+        atr: Number,
+        rsi: Number,
+        ema9: Number,
+        ema50: Number,
+        ema200: Number,
+        spyBetaValue: Number,
+        PrevDailyBar: {
+            ClosePrice: Number,
+            HighPrice: Number,
+            LowPrice: Number,
+            OpenPrice: Number,
+            Timestamp: Date,
+            Volume: Number,
+        },
+        DailyBar: {
+            ClosePrice: Number,
+            HighPrice: Number,
+            LowPrice: Number,
+            OpenPrice: Number,
+            Timestamp: Date,
+            Volume: Number,
+        }
+    },
+
     correlationValues: {
         SPY: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
         IWM: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
@@ -42,38 +77,10 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         DIA: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
         sector: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
     },
-    dailyTickerValues: {
-        atr: Number,
-        rsi: Number,
-        ema9: Number,
-        ema50: Number,
-        ema200: Number,
-        PrevDailyBar: {
-            ClosePrice: Number,
-            HighPrice: Number,
-            LowPrice: Number,
-            TradeCount: Number,
-            OpenPrice: Number,
-            Timestamp: Date,
-            Volume: Number,
-            VWAP: Number
-        },
-        DailyBar: {
-            ClosePrice: Number,
-            HighPrice: Number,
-            LowPrice: Number,
-            TradeCount: Number,
-            OpenPrice: Number,
-            Timestamp: Date,
-            Volume: Number,
-            VWAP: Number
-        },
-        dateCalculated: Date,
-        yesterDayHigh: Number,
-        yesterDayClose: Number,
-        yesterDayLow: Number,
-        todayOpen: Number,
-    },
+    greatestCorrelation: String,
+
+
+
     extentProb: {
         openH: Number,
         openL: Number,
@@ -114,26 +121,64 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         fiveMinDownDay: [Number],
         tenMinDownDay: [Number]
     },
-    institutionalPricePoints: [relevantPriceSchema],
-    relevantHighs: [relevantPriceSchema],
-    relevantLows: [relevantPriceSchema],
+
+
+
     cascadePattern: {
-        points: [{ date: Date, price: Number }],
-        projection: { days: Number, percentDrop: Number }
+        points: { type: [pointsSchema], default: undefined },
+        projection: {
+            avgDropGainPercent: Number,
+            avgDownDuration: Number,
+            anchorPeak: Number,
+            priceIdeal: Number,
+            projectedDate: Date,
+            priceFloor: Number,
+            priceCeiling: Number,
+            buffer: Number,
+        },
+        anchorDate: Date,
     },
     channelPattern: {
-        points: [{ date: Date, price: Number }],
-        top: { date: Date, price: Number },
-        bottom: { date: Date, price: Number }
+        channelType: String,
+        channelBottom: Number,
+        channelTop: Number,
+        channelHeight: Number,
+        entryStrikeBuffer: Number,
+        stopLossBufferMultiplier: Number,
+        requiredVolumeMultiplier: Number,
+        anchorDate: Date
     },
     continuationPattern: {
-        points: [{ date: Date, price: Number }],
-        top: { date: Date, price: Number },
-        bottom: { date: Date, price: Number }
+        trendHealthScore: Number,
+        calculatedDailyGrowthRate: Number,
+        entryTrigger: Number,
+        invalidationStop: Number,
+        anchorDate: Date,
+        anchorMidPrice: Number,
+        projection: {
+            oneDay: {
+                projectedTargetPrice: Number,
+                expectedTotalGainPercent: Number,
+                confidenceScore: Number,
+                classification: String
+            },
+            twoDays: {
+                projectedTargetPrice: Number,
+                expectedTotalGainPercent: Number,
+                confidenceScore: Number,
+                classification: String
+            },
+            threeDays: {
+                projectedTargetPrice: Number,
+                expectedTotalGainPercent: Number,
+                confidenceScore: Number,
+                classification: String
+            }
+        }
     },
     patternClassification: String,
+    datePatternLastCalculated: Date,
 
-    priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 

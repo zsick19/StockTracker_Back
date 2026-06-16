@@ -22,8 +22,14 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   if (!req.userId) return res.status(400).send("missing information");
 
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
-
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+  // const oldestDate = await EnterExitPlannedStock.findOne({
+  //   'relevantCandleDate.date': { $exists: true }
+  // }).sort({ 'relevantCandleDate.date': 1 }).select('relevantCandleDate.date tickerSymbol')
+  // console.log(oldestDate)
+  // foundUser.oldestRelevantDateToFetch = oldestDate.relevantCandleDate.date
+  // await foundUser.save()
 
   let taskData = { userId: foundUser._id, refreshUsersStreamingTickers: true }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)

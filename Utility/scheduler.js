@@ -9,6 +9,7 @@ const { sectorToTicker } = require('./sectorAndTicker');
 const { retryOperation } = require('./sharedUtility');
 const { calculateNightlyCorrelation } = require('./technicalCalculations/correlationCalculation');
 const { calculateNightlyBeta } = require('./technicalCalculations/betaCalculation');
+const { isBefore } = require('date-fns/isBefore');
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -106,14 +107,24 @@ async function updateOpenVolume()
 }
 async function updateDailyValuesPostClose()
 {
-    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol sector')
+
+    const foundPlans = await EnterExitPlannedStock.find()
+        .select('tickerSymbol sector relevantCandleDate patternClassification cascadePattern.anchorDate channelPattern.anchorDate continuationPattern.anchorDate')
 
     let totalPlanCount = 0
+    let oldestRelevantDate = new Date()
     let tickerList = foundPlans.map(t =>
     {
+        if (isBefore(t.relevantCandleDate, oldestRelevantDate)) oldestRelevantDate = t.relevantCandleDate
         totalPlanCount++
-        return { symbol: t.tickerSymbol, sector: t.sector }
+        let anchorDate = undefined
+        if (t?.cascadePattern.anchorDate) anchorDate = t.cascadePattern.anchorDate
+        else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
+        else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
+
+        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate }
     })
+    oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
 
     function chunkArray(array, size)
     {
@@ -139,47 +150,48 @@ async function updateDailyValuesPostClose()
             const onlyTickersFromBatch = tickerList.map(t => t.symbol)
             //if current time is past 4pm use today otherwise use yesterday
 
+            // const [barsMap, fiveMinCandles, snapshotsMap] = await Promise.all([
+            //     alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate, }),
+            //     alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, }),
+            //     alpaca.getSnapshots(onlyTickersFromBatch)
+            // ]);
             const [barsMap, snapshotsMap] = await Promise.all([
-                alpaca.getMultiBarsV2(onlyTickersFromBatch,
-                    {
-                        timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY),
-                        start: startDate,
-                    }),
+                alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate, }),
                 alpaca.getSnapshots(onlyTickersFromBatch)
             ]);
 
-            const candleSPYData = sectorDailyBar.get('SPY')
+
 
             const bulkOperations = [];
             // Map over the chunk keys to perform calculations
             for (const stock of batch)
             {
                 const candleData = barsMap.get(stock.symbol);
+                // const fiveMinCandleDate = fiveMinCandles.get(stock.symbol);
                 const snapShot = snapshotsMap.find(t => t.symbol === stock.symbol);
+
+                let calculatedDailyValues
+                let calculatedCorrelationValues
+                let channelPattern
+                let cascadePattern
+                let continuationPattern
+                let maxCorrelation = null;
 
                 if (candleData && candleData.length > 0)
                 {
 
-                    const calculatedValues = {
+                    calculatedDailyValues = {
                         ema9: calculateEMADataPoints(candleData, 9),
                         ema50: calculateEMADataPoints(candleData, 50),
                         ema200: calculateEMADataPoints(candleData, 200),
                         atr: calculateATR(candleData),
                         rsi: calculateCurrentSingleRSI(candleData),
+                        spyBetaValue: calculateNightlyBeta(candleData, sectorDailyBar.get('SPY')),
                         PrevDailyBar: snapShot?.PrevDailyBar || undefined,
                         DailyBar: snapShot?.DailyBar || undefined,
-                        dateCalculated: new Date()
                     }
 
-                    // const calculatedCorrelationValues = {
-                    //     SPY: calculateCorrelation(candleData, sectorDailyBar.get('SPY')),
-                    //     QQQ: calculateCorrelation(candleData, sectorDailyBar.get('QQQ')),
-                    //     IWM: calculateCorrelation(candleData, sectorDailyBar.get('IWM')),
-                    //     DIA: calculateCorrelation(candleData, sectorDailyBar.get('DIA')),
-                    //     sector: calculateCorrelation(candleData, sectorDailyBar.get(sectorToTicker[stock.sector]))
-                    // }
-
-                    const calculatedCorrelationValues = {
+                    calculatedCorrelationValues = {
                         SPY: calculateNightlyCorrelation(candleData, sectorDailyBar.get('SPY')),
                         QQQ: calculateNightlyCorrelation(candleData, sectorDailyBar.get('QQQ')),
                         IWM: calculateNightlyCorrelation(candleData, sectorDailyBar.get('IWM')),
@@ -187,9 +199,7 @@ async function updateDailyValuesPostClose()
                         sector: calculateNightlyCorrelation(candleData, sectorDailyBar.get(sectorToTicker[stock.sector]))
                     }
 
-                    let maxCorrelation = null;
-                    let maxValue = -Infinity; // Starts at lowest possible number
-
+                    let maxValue = -Infinity;
                     for (const [key, value] of Object.entries(calculatedCorrelationValues))
                     {
                         if (key === 'sector' || key === null) { continue; }
@@ -200,25 +210,40 @@ async function updateDailyValuesPostClose()
                         }
                     }
 
-                    const betaCalc = calculateNightlyBeta(candleData, sectorDailyBar.get('SPY'))
+                    switch (stock.classification)
+                    {
+                        case 'channel':
+                            //need to filter daily candles down to just anchor date on pattern
+                            console.log('processing channel')
+                            console.log(stock.anchor, stock.symbol)
+                            break;
+                        case 'cascade':
+                            console.log('processing cascade')
+                            console.log(stock.anchor, stock.symbol)
 
+                            break;
+                        case 'continuation':
+                            console.log('processing continuation')
+                            console.log(stock.anchor, stock.symbol)
+                            break;
+                    }
 
-                    // Construct efficient upsert bulk actions
-                    bulkOperations.push({
-                        updateOne: {
-                            filter: { tickerSymbol: stock.symbol },
-                            update: {
-                                $set: {
-                                    dailyTickerValues: calculatedValues,
-                                    correlationValues: calculatedCorrelationValues,
-                                    greatestCorrelation: maxCorrelation,
-                                    spyBetaValue: betaCalc
-                                }
-                            },
-                            upsert: true
-                        }
-                    });
                 }
+
+                // Construct efficient upsert bulk actions
+                bulkOperations.push({
+                    updateOne: {
+                        filter: { tickerSymbol: stock.symbol },
+                        update: {
+                            $set: {
+                                dailyTickerValues: calculatedDailyValues,
+                                correlationValues: calculatedCorrelationValues,
+                                greatestCorrelation: maxCorrelation,
+                            }
+                        },
+                        upsert: true
+                    }
+                });
             }
 
             // Execute all 50 database modifications in one network payload
@@ -245,7 +270,7 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    // updateDailyValuesPostClose()
+    updateDailyValuesPostClose()
     cron.schedule('15 9 * * *', () => { trialForOptions() })
     cron.schedule('25 9 * * *', () => { updateOpenVolume() })
     cron.schedule('30 16 * * *', () => { updateDailyValuesPostClose() })
