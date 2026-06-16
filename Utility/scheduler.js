@@ -10,6 +10,8 @@ const { retryOperation } = require('./sharedUtility');
 const { calculateNightlyCorrelation } = require('./technicalCalculations/correlationCalculation');
 const { calculateNightlyBeta } = require('./technicalCalculations/betaCalculation');
 const { isBefore } = require('date-fns/isBefore');
+const { projectAdaptiveChannelWithOptimizedCeiling } = require('./technicalCalculations/DailyPatternGenerators/horizontalPatternGenerator');
+const { projectContinuationTrendMetrics } = require('./technicalCalculations/DailyPatternGenerators/continuationPatternGenerator');
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -212,19 +214,20 @@ async function updateDailyValuesPostClose()
 
                     switch (stock.classification)
                     {
-                        case 'channel':
-                            //need to filter daily candles down to just anchor date on pattern
-                            console.log('processing channel')
-                            console.log(stock.anchor, stock.symbol)
-                            break;
                         case 'cascade':
+                            //need to filter daily candles down to just anchor date on pattern
                             console.log('processing cascade')
                             console.log(stock.anchor, stock.symbol)
-
+                            break;
+                        case 'channel':
+                            const results = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
+                            console.log('processing channel')
+                            console.log(stock.symbol, results)
                             break;
                         case 'continuation':
+                            const results = projectContinuationTrendMetrics(candleData, stock.anchor, calculatedDailyValues.spyBetaValue)
                             console.log('processing continuation')
-                            console.log(stock.anchor, stock.symbol)
+                            console.log(stock.symbol, results)
                             break;
                     }
 
