@@ -211,23 +211,22 @@ async function updateDailyValuesPostClose()
                             maxCorrelation = key;
                         }
                     }
-
                     switch (stock.classification)
                     {
                         case 'cascade':
                             //need to filter daily candles down to just anchor date on pattern
                             console.log('processing cascade')
                             console.log(stock.anchor, stock.symbol)
+
+
                             break;
                         case 'channel':
-                            const results = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
+                            channelPattern = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
                             console.log('processing channel')
-                            console.log(stock.symbol, results)
                             break;
                         case 'continuation':
-                            const results = projectContinuationTrendMetrics(candleData, stock.anchor, calculatedDailyValues.spyBetaValue)
+                            continuationPattern = projectContinuationTrendMetrics(candleData, stock.anchor, calculatedDailyValues.spyBetaValue)
                             console.log('processing continuation')
-                            console.log(stock.symbol, results)
                             break;
                     }
 
@@ -242,6 +241,8 @@ async function updateDailyValuesPostClose()
                                 dailyTickerValues: calculatedDailyValues,
                                 correlationValues: calculatedCorrelationValues,
                                 greatestCorrelation: maxCorrelation,
+                                channelPattern: channelPattern,
+                                continuationPattern: continuationPattern
                             }
                         },
                         upsert: true
