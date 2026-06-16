@@ -12,6 +12,7 @@ const { calculateNightlyBeta } = require('./technicalCalculations/betaCalculatio
 const { isBefore } = require('date-fns/isBefore');
 const { projectAdaptiveChannelWithOptimizedCeiling } = require('./technicalCalculations/DailyPatternGenerators/horizontalPatternGenerator');
 const { projectContinuationTrendMetrics } = require('./technicalCalculations/DailyPatternGenerators/continuationPatternGenerator');
+const { processNightlyCascadeMaintenance } = require('./technicalCalculations/DailyPatternGenerators/nightlyCascadeMaintenance');
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -111,7 +112,7 @@ async function updateDailyValuesPostClose()
 {
 
     const foundPlans = await EnterExitPlannedStock.find()
-        .select('tickerSymbol sector relevantCandleDate patternClassification cascadePattern.anchorDate channelPattern.anchorDate continuationPattern.anchorDate')
+        .select('tickerSymbol sector relevantCandleDate patternClassification cascadePattern channelPattern.anchorDate continuationPattern.anchorDate')
 
     let totalPlanCount = 0
     let oldestRelevantDate = new Date()
@@ -124,7 +125,7 @@ async function updateDailyValuesPostClose()
         else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
         else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
 
-        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate }
+        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
     })
     oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
 
@@ -217,8 +218,8 @@ async function updateDailyValuesPostClose()
                             //need to filter daily candles down to just anchor date on pattern
                             console.log('processing cascade')
                             console.log(stock.anchor, stock.symbol)
-
-
+                            cascadePattern = processNightlyCascadeMaintenance(stock.cascadePattern, candleData.at(-1))
+                            console.log(cascadePattern)
                             break;
                         case 'channel':
                             channelPattern = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
