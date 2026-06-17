@@ -88,6 +88,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         closeH: Number,
         closeL: Number,
     },
+    extremeProbByFiveMin: [{ highProb: Number, lowProb: Number }],
     morningMetrics: {
         downSide: {
             sampleSizeDays: Number,

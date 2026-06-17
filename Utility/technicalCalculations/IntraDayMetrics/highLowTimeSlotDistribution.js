@@ -108,12 +108,8 @@ function calculateHighLowTimeDistribution(candles)
         }
 
         return {
-            time: timeKey,
-            highPrintProbability: parseFloat(highProb.toFixed(2)),
-            lowPrintProbability: parseFloat(lowProb.toFixed(2)),
-            combinedProbability: parseFloat(combinedProb.toFixed(2)),
-            sessionZone: sessionZone,
-            visualAnchorColor: visualAnchorColor
+            highProb: parseFloat(highProb.toFixed(2)),
+            lowProb: parseFloat(lowProb.toFixed(2))
         };
     });
 
@@ -121,4 +117,4 @@ function calculateHighLowTimeDistribution(candles)
     return resultProfile.sort((a, b) => a.time.localeCompare(b.time));
 }
 
-module.exports={calculateHighLowTimeDistribution}
+module.exports = { calculateHighLowTimeDistribution }
