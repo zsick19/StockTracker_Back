@@ -6,7 +6,7 @@
  * @param {Array} candles - Array of 5-minute candle objects: { Timestamp, OpenPrice, ClosePrice, HighPrice, LowPrice }
  * @returns {Object} Complete data report for dashboard time-gating and target mapping
  */
-function calculateCompleteMorningMetrics(candles)
+function calculateOpenTimeAndStretchMetrics(candles)
 {
     if (!candles || candles.length === 0)
     {
@@ -175,24 +175,21 @@ function calculateCompleteMorningMetrics(candles)
 
     // 4. package up the unified statistical coordinates
     return {
-        totalDaysScanned: totalDays,
-
-        downsideMetrics: {
+        downSide: {
             sampleSizeDays: downOpeningDaysCount,
-            averageInitialDropStretch: parseFloat((totalDownStretchPercent / (downOpeningDaysCount || 1)).toFixed(2)) + "%",
-            averageTimeToBottom: downOpeningDaysCount ? minutesToTimeString(downBottomMinutesSum / downOpeningDaysCount) : "N/A",
-            reboundProbability: parseFloat(((downReboundSuccessCount / (downOpeningDaysCount || 1)) * 100).toFixed(2)) + "%",
-            averageSuccessfulReboundExpansion: downReboundSuccessCount ? parseFloat((totalDownReboundSizePercent / downReboundSuccessCount).toFixed(2)) + "%" : "N/A"
+            averageInitialDropStretch: parseFloat((totalDownStretchPercent / (downOpeningDaysCount || 1)).toFixed(2)),
+            averageTimeToBottom: downOpeningDaysCount ? minutesToTimeString(downBottomMinutesSum / downOpeningDaysCount) : undefined,
+            reboundProbability: parseFloat(((downReboundSuccessCount / (downOpeningDaysCount || 1)) * 100).toFixed(2)),
+            averageSuccessfulReboundExpansion: downReboundSuccessCount ? parseFloat((totalDownReboundSizePercent / downReboundSuccessCount).toFixed(2)) : undefined
         },
-
-        upsideMetrics: {
+        upSide: {
             sampleSizeDays: upOpeningDaysCount,
-            averageInitialRallyStretch: parseFloat((totalUpStretchPercent / (upOpeningDaysCount || 1)).toFixed(2)) + "%",
-            averageTimeToPeak: upOpeningDaysCount ? minutesToTimeString(upPeakMinutesSum / upOpeningDaysCount) : "N/A",
-            pullbackBelowOpenProbability: parseFloat(((upPullbackSuccessCount / (upOpeningDaysCount || 1)) * 100).toFixed(2)) + "%",
-            averageSuccessfulPullbackSize: upPullbackSuccessCount ? parseFloat((totalUpPullbackSizePercent / upPullbackSuccessCount).toFixed(2)) + "%" : "N/A"
+            averageInitialRallyStretch: parseFloat((totalUpStretchPercent / (upOpeningDaysCount || 1)).toFixed(2)),
+            averageTimeToPeak: upOpeningDaysCount ? minutesToTimeString(upPeakMinutesSum / upOpeningDaysCount) : undefined,
+            pullbackBelowOpenProbability: parseFloat(((upPullbackSuccessCount / (upOpeningDaysCount || 1)) * 100).toFixed(2)),
+            averageSuccessfulPullbackSize: upPullbackSuccessCount ? parseFloat((totalUpPullbackSizePercent / upPullbackSuccessCount).toFixed(2)) : undefined
         }
     };
 }
 
-module.exports = { calculateCompleteMorningMetrics }
+module.exports = { calculateOpenTimeAndStretchMetrics }

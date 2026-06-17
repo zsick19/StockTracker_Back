@@ -87,7 +87,6 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         midL: Number,
         closeH: Number,
         closeL: Number,
-        dateCalculated: Date
     },
     morningMetrics: {
         downSide: {
@@ -104,7 +103,6 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
             pullbackBelowOpenProbability: Number,
             averageSuccessfulPullbackSize: Number
         },
-        dateCalculated: Date
     },
     morningVolumeMetrics: {
         upOpenDays: Number,

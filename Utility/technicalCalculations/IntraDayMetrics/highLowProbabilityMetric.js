@@ -7,10 +7,7 @@
  */
 function calculateExtendedSessionProbabilities(candles)
 {
-    if (!candles || candles.length === 0)
-    {
-        return { totalDaysAnalyzed: 0, stats: null };
-    }
+    if (!candles || candles.length === 0) { return { totalDaysAnalyzed: 0, stats: null }; }
 
     // 1. Group the 5-minute candles by day (using New York market time strings)
     const daysData = {};
@@ -35,16 +32,9 @@ function calculateExtendedSessionProbabilities(candles)
         // Filter out pre-market and after-hours data points
         if (timeKey < "09:30" || timeKey > "16:00") return;
 
-        if (!daysData[datePart])
-        {
-            daysData[datePart] = [];
-        }
+        if (!daysData[datePart]) { daysData[datePart] = []; }
 
-        daysData[datePart].push({
-            time: timeKey,
-            high: candle.HighPrice,
-            low: candle.LowPrice
-        });
+        daysData[datePart].push({ time: timeKey, high: candle.HighPrice, low: candle.LowPrice });
     });
 
     // 2. Initialize our historical session counter variables
@@ -117,24 +107,14 @@ function calculateExtendedSessionProbabilities(candles)
     // Helper utility to convert raw numbers safely into rounded percentages
     const toPercent = (count) => parseFloat(((count / totalDays) * 100).toFixed(2));
 
-    // 4. package up the statistical coordinates
     return {
-        totalDaysAnalyzed: totalDays,
-        morningSession: {
-            timeFrame: "09:30 AM - 10:30 AM ET",
-            highPrintedPercent: toPercent(morningHighs),
-            lowPrintedPercent: toPercent(morningLows)
-        },
-        middaySession: {
-            timeFrame: "10:31 AM - 02:59 PM ET",
-            highPrintedPercent: toPercent(middayHighs),
-            lowPrintedPercent: toPercent(middayLows)
-        },
-        closingSession: {
-            timeFrame: "03:00 PM - 04:00 PM ET",
-            highPrintedPercent: toPercent(closingHighs),
-            lowPrintedPercent: toPercent(closingLows)
-        }
+        openH: toPercent(morningHighs),
+        openL: toPercent(morningLows),
+        midH: toPercent(middayHighs),
+        midL: toPercent(middayLows),
+        closeH: toPercent(closingHighs),
+        closeL: toPercent(closingLows)
     };
 }
+
 module.exports = { calculateExtendedSessionProbabilities }

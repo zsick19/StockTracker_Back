@@ -3,54 +3,58 @@ const EnterExitPlannedStock = require('../models/EnterExitPlannedStock')
 const asyncHandler = require("express-async-handler");
 const User = require('../models/User');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
-const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI, calculateExtendedSessionProbabilities, calculateCompleteMorningMetrics, calculateCorrelation, seedHistoricalOpeningHourVolume, calculateMorningWalls } = require('./technicalIndicators');
-const { subBusinessDays } = require('date-fns/subBusinessDays');
+const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
+
+const { isBefore, addBusinessDays, subDays, isWeekend, subBusinessDays } = require('date-fns');
 const { sectorToTicker } = require('./sectorAndTicker');
 const { retryOperation } = require('./sharedUtility');
-const { calculateNightlyCorrelation } = require('./technicalCalculations/correlationCalculation');
-const { calculateNightlyBeta } = require('./technicalCalculations/betaCalculation');
-const { isBefore } = require('date-fns/isBefore');
+
+const { calculateNightlyCorrelation } = require('./technicalCalculations/DailyMacroMetrics/correlationCalculation');
+const { calculateNightlyBeta } = require('./technicalCalculations/DailyMacroMetrics/betaCalculation');
+const { calculateATR } = require('./technicalCalculations/DailyMacroMetrics/calculateATR');
+const { calculateEMADataPoints } = require('./technicalCalculations/DailyMacroMetrics/dailyEMADataPoints');
+const { calculateCurrentSingleRSI } = require('./technicalCalculations/DailyMacroMetrics/calculateRSI');
+
 const { projectAdaptiveChannelWithOptimizedCeiling } = require('./technicalCalculations/DailyPatternGenerators/horizontalPatternGenerator');
 const { projectContinuationTrendMetrics } = require('./technicalCalculations/DailyPatternGenerators/continuationPatternGenerator');
 const { processNightlyCascadeMaintenance } = require('./technicalCalculations/DailyPatternGenerators/nightlyCascadeMaintenance');
-const { addBusinessDays } = require('date-fns/addBusinessDays');
+
 const { seedHistoricalVolumeWithPreMarket } = require('./technicalCalculations/IntraDayMetrics/morningVolumeMetrics');
-const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
+const { calculateExtendedSessionProbabilities } = require('./technicalCalculations/IntraDayMetrics/highLowProbabilityMetric');
+const { calculateOpenTimeAndStretchMetrics } = require('./technicalCalculations/IntraDayMetrics/openTimeAndStretchMetrics');
+const { calculateHighLowTimeDistribution } = require('./technicalCalculations/IntraDayMetrics/highLowTimeSlotDistribution');
+
+
 
 // const TradeRecord = require("../models/TradeRecord");
 
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function trialForOptions()
+// async function trialForOptions()
+// {
+//     const underlyingSymbol = 'EOSE';
+
+//     // 2. Query and pipeline routing parameters
+//     // FIX: Passing timeframe bypasses the legacy SDK internal validation bug
+//     const queryParams = {
+//         feed: 'opra',         // Options data source feed
+//         // type: 'call',         // Optional: filter 'call' or 'put'
+//         limit: 100,           // Optional: quantity per page limit (Max 1000)
+//         // timeframe: '1Day'     // Dummy property to prevent SDK errors
+//     };
+
+//     console.log(`Fetching full options chain snapshots for: ${underlyingSymbol}...`);
+
+//     // Call the specific option chain data client mapping
+//     const chain = await alpaca.getOptionChain(underlyingSymbol, queryParams);
+//     const callPutWallResults = calculateMorningWalls(chain)
+//     console.log(callPutWallResults)
+// }
+
+
+async function updateHighImportanceAndTradeMorningMetrics()
 {
-    const underlyingSymbol = 'EOSE';
-
-    // 2. Query and pipeline routing parameters
-    // FIX: Passing timeframe bypasses the legacy SDK internal validation bug
-    const queryParams = {
-        feed: 'opra',         // Options data source feed
-        // type: 'call',         // Optional: filter 'call' or 'put'
-        limit: 100,           // Optional: quantity per page limit (Max 1000)
-        // timeframe: '1Day'     // Dummy property to prevent SDK errors
-    };
-
-    console.log(`Fetching full options chain snapshots for: ${underlyingSymbol}...`);
-
-    // Call the specific option chain data client mapping
-    const chain = await alpaca.getOptionChain(underlyingSymbol, queryParams);
-    const callPutWallResults = calculateMorningWalls(chain)
-    console.log(callPutWallResults)
-
-
-
-}
-
-
-async function updateOpenVolume()
-{
-    console.log('Morning Metric Scheduler Is Executing')
-
     const importantEnterExitPlans = await EnterExitPlannedStock.find({
         $or: [
             { highImportance: { $exists: true, $ne: null } },
@@ -59,44 +63,35 @@ async function updateOpenVolume()
     }).exec();
     if (importantEnterExitPlans.length === 0) return
 
-
-
     for (const enterExitPlan of importantEnterExitPlans)
     {
-        const startDate = enterExitPlan?.relevantCandleDate ? new Date(enterExitPlan.relevantCandleDate) : subBusinessDays(new Date(), 45)
         try
         {
-
             await retryOperation(async () =>
             {
-                const fiveMinCandles = await alpaca.getBarsV2(enterExitPlan.tickerSymbol,
-                    { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
-                const candleData = [];
-                for await (let b of fiveMinCandles) { candleData.push(b); }
+                const startDate = enterExitPlan?.relevantCandleDate.split('T')[0]
+                const fiveMinCandles = await alpaca.getBarsV2(enterExitPlan.tickerSymbol, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
+                const fiveMinCandleData = [];
+                for await (let b of fiveMinCandles) { fiveMinCandleData.push(b); }
 
-                const probability = calculateExtendedSessionProbabilities(candleData)
-                const morningMetricsResults = calculateCompleteMorningMetrics(candleData)
+                if (fiveMinCandleData && fiveMinCandleData.length > 0)
+                {
+                    const extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
+                    const morningMetricsResults = calculateOpenTimeAndStretchMetrics(fiveMinCandleData)
+                    let openVolumeMetrics
+                    if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
+                        openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
 
-                let extentProb = {
-                    openH: probability.morningSession.highPrintedPercent,
-                    openL: probability.morningSession.lowPrintedPercent,
-                    midH: probability.middaySession.highPrintedPercent,
-                    midL: probability.middaySession.lowPrintedPercent,
-                    closeH: probability.closingSession.highPrintedPercent,
-                    closeL: probability.closingSession.lowPrintedPercent,
-                    dateCalculated: new Date()
+
+                    const updatedEnterExitPlan = await EnterExitPlannedStock.findByIdAndUpdate(enterExitPlan._id, {
+                        $set: {
+                            extentProb: extentProbResults,
+                            morningMetrics: morningMetricsResults,
+                            morningVolumeMetrics: openVolumeMetrics
+                        }
+                    })
+                    await delay(3000);
                 }
-                let morningMetrics = { upSide: { ...morningMetricsResults.upsideMetrics }, downSide: { ...morningMetricsResults.downsideMetrics }, dateCalculated: new Date() }
-
-                const morningVolResults = seedHistoricalVolumeWithPreMarket(candleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
-                const updatedEnterExitPlan = await EnterExitPlannedStock.findByIdAndUpdate(enterExitPlan._id, {
-                    $set: {
-                        extentProb: extentProb,
-                        morningMetrics: morningMetrics,
-                        morningVolumeMetrics: morningVolResults
-                    }
-                })
-                await delay(3000);
             })
         } catch (error)
         {
@@ -105,26 +100,24 @@ async function updateOpenVolume()
         }
     }
 
-    console.log(`${importantEnterExitPlans.length} plans were updated with metrics`)
-
-
+    console.log(`${importantEnterExitPlans.length} High Importance Plans and Trades were updated with metrics`)
 }
-async function updateVolumePreOpen()
+
+
+
+async function updateMorningMetricsPreOpen()
 {
-    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol relevantCandleDate')
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol')
 
     let totalPlanCount = 0
-    let oldestRelevantDate = new Date()
     let tickerList = foundPlans.map(t =>
     {
-        if (isBefore(t.relevantCandleDate, oldestRelevantDate)) oldestRelevantDate = t.relevantCandleDate
         totalPlanCount++
-        // console.log(t)
-
-        return { symbol: t.tickerSymbol, relevantCandleDate: t?.relevantCandleDate }
+        return { symbol: t.tickerSymbol }
     })
+    let startDate = subBusinessDays(new Date(), 15)
 
-    //oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
+
 
     function chunkArray(array, size)
     {
@@ -132,12 +125,6 @@ async function updateVolumePreOpen()
         for (let i = 0; i < array.length; i += size) { result.push(array.slice(i, i + size)) }
         return result;
     }
-
-    // const startDate = subBusinessDays(new Date(), 180 + 10)
-
-    // const sectorDailyBar = await alpaca.getMultiBarsV2(['SPY', 'QQQ', 'DIA', 'IWM', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE'],
-    //     { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate })
-
 
     // Split your massive list into safe 50-ticker sub-arrays
     const batches = chunkArray(tickerList, 50);
@@ -147,57 +134,52 @@ async function updateVolumePreOpen()
         try
         {
             const onlyTickersFromBatch = tickerList.map(t => t.symbol)
-            //const [fiveMinCandles, snapshotsMap] = await alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, })
+            const fiveMinCandles = await alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: subBusinessDays(new Date(), 15), })
 
             const bulkOperations = [];
             // Map over the chunk keys to perform calculations
             for (const stock of batch)
             {
-                if (!stock.relevantCandleDate)
+                const fiveMinCandleData = fiveMinCandles.get(stock.symbol)
+
+                if (fiveMinCandleData && fiveMinCandleData.length > 0)
                 {
-                    console.log(stock)
+                    const extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
+                    const morningMetricsResults = calculateOpenTimeAndStretchMetrics(fiveMinCandleData)
+                    let openVolumeMetrics
+                    if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
+                        openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
+                    let results = calculateHighLowTimeDistribution(fiveMinCandleData)
+                    console.log(results)
 
-                    //     // let fiveMin = fiveMinCandles.get(stock.symbol)
-                    //     // const time = new Date(stock.relevantCandleDate).getTime()
-
-                    //     // let fiveMinCandleData = fiveMin.filter(t => { return new Date(t.Timestamp).getTime() < time })
-
-                    //     // let extentProb
-
-                    //     // if (fiveMinCandleData && fiveMinCandleData.length > 0)
-                    //     // {
-                    //     //     let extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
-                    //     //     let morningMetricsResults = calculateCompleteMorningMetrics(fiveMinCandleData)
-                    //     //     let openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
-
-                    //     // }
-
-                    //     console.log(stock.relevantCandleDate)
-                    //     //Construct efficient upsert bulk actions
-                    bulkOperations.push({
-                        updateOne: {
-                            filter: { tickerSymbol: stock.symbol },
-                            update: {
-                                $set: {
-                                    updateNeededDate: new Date()
-                                    //                               dateMorningMetricsLastCalculated:new Date()
-                                }
-                            },
-                            upsert: true
-                        }
-                    });
+                    // bulkOperations.push({
+                    //     updateOne: {
+                    //         filter: { tickerSymbol: stock.symbol },
+                    //         update: {
+                    //             $set: {
+                    //                 extentProb: extentProbResults,
+                    //                 morningMetrics: morningMetricsResults,
+                    //                 morningVolumeMetrics: openVolumeMetrics,
+                    //                 dateMorningMetricsLastCalculated: new Date()
+                    //             }
+                    //         },
+                    //         upsert: true
+                    //     }
+                    // });
+                }
+                else
+                {
+                    console.log(`Ticker ${stock.symbol} didn't fetch any data.`)
                 }
             }
 
-            // Execute all 50 database modifications in one network payload
             if (bulkOperations.length > 0)
             {
                 const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
-                console.log(`Successfully updated database for batch ${index + 1}. Upserted/Modified: ${result.upsertedCount + result.modifiedCount}`);
+                console.log(`Successfully updated database for batch ${index + 1} of Morning Metrics. Modified: ${result.upsertedCount + result.modifiedCount}`);
             }
 
-            // Optional short cooldown to avoid hitting Alpaca tier ceilings
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 2000));
 
         } catch (batchError)
         {
@@ -217,19 +199,16 @@ async function updateDailyValuesPostClose()
         .select('tickerSymbol sector relevantCandleDate patternClassification cascadePattern channelPattern.anchorDate continuationPattern.anchorDate')
 
     let totalPlanCount = 0
-    let oldestRelevantDate = new Date()
     let tickerList = foundPlans.map(t =>
     {
-        if (isBefore(t.relevantCandleDate, oldestRelevantDate)) oldestRelevantDate = t.relevantCandleDate
         totalPlanCount++
         let anchorDate = undefined
         if (t?.cascadePattern.anchorDate) anchorDate = t.cascadePattern.anchorDate
         else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
         else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
 
-        return { symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
+        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
     })
-    oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
 
     function chunkArray(array, size)
     {
@@ -240,12 +219,8 @@ async function updateDailyValuesPostClose()
 
     // Split your massive list into safe 50-ticker sub-arrays
     const batches = chunkArray(tickerList, 50);
-    const startDate = subBusinessDays(new Date(), 180 + 10)
-
-    // Sequential loop through chunks to protect API rate limits
-
     const sectorDailyBar = await alpaca.getMultiBarsV2(['SPY', 'QQQ', 'DIA', 'IWM', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE'],
-        { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate })
+        { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subBusinessDays(new Date(), 180) })
 
 
     for (const [index, batch] of batches.entries())
@@ -254,9 +229,8 @@ async function updateDailyValuesPostClose()
         {
             const onlyTickersFromBatch = tickerList.map(t => t.symbol)
 
-            const [barsMap, fiveMinCandles, snapshotsMap] = await Promise.all([
-                alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate, }),
-                alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, }),
+            const [barsMap, snapshotsMap] = await Promise.all([
+                alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: subBusinessDays(new Date(), 180), }),
                 alpaca.getSnapshots(onlyTickersFromBatch)
             ]);
 
@@ -265,12 +239,6 @@ async function updateDailyValuesPostClose()
             for (const stock of batch)
             {
                 const candleData = barsMap.get(stock.symbol);
-                let fiveMin = fiveMinCandles.get(stock.symbol)
-                const time = new Date(stock.relevantCandleDate.date).getTime()
-
-
-
-                let fiveMinCandleData = fiveMin.filter(t => { return new Date(t.Timestamp).getTime() < time })
                 const snapShot = snapshotsMap.find(t => t.symbol === stock.symbol);
 
                 let calculatedDailyValues
@@ -278,12 +246,10 @@ async function updateDailyValuesPostClose()
                 let channelPattern
                 let cascadePattern
                 let continuationPattern
-                let extentProb
                 let maxCorrelation = null;
 
                 if (candleData && candleData.length > 0)
                 {
-
                     calculatedDailyValues = {
                         ema9: calculateEMADataPoints(candleData, 9),
                         ema50: calculateEMADataPoints(candleData, 50),
@@ -343,47 +309,37 @@ async function updateDailyValuesPostClose()
                     }
                 }
 
-                if (fiveMinCandleData && fiveMinCandleData.length > 0)
-                {
-                    let extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
-                    let morningMetricsResults = calculateCompleteMorningMetrics(fiveMinCandleData)
-                    let openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
-                    console.log(stock.symbol)
-                    console.log(extentProbResults)
-                    console.log(morningMetricsResults)
-                    console.log(openVolumeMetrics)
-                }
 
 
-                // Construct efficient upsert bulk actions
-                // bulkOperations.push({
-                //     updateOne: {
-                //         filter: { tickerSymbol: stock.symbol },
-                //         update: {
-                //             $set: {
-                //                 dailyTickerValues: calculatedDailyValues,
-                //                 correlationValues: calculatedCorrelationValues,
-                //                 greatestCorrelation: maxCorrelation,
-                //                 channelPattern: channelPattern,
-                //                 continuationPattern: continuationPattern,
-                //                 cascadePattern: cascadePattern,
-                //                 datePatternLastCalculated: new Date()
-                //             }
-                //         },
-                //         upsert: true
-                //     }
-                // });
+
+                //Construct efficient upsert bulk actions
+                bulkOperations.push({
+                    updateOne: {
+                        filter: { tickerSymbol: stock.symbol },
+                        update: {
+                            $set: {
+                                dailyTickerValues: calculatedDailyValues,
+                                correlationValues: calculatedCorrelationValues,
+                                greatestCorrelation: maxCorrelation,
+                                channelPattern: channelPattern,
+                                continuationPattern: continuationPattern,
+                                cascadePattern: cascadePattern,
+                                datePatternLastCalculated: new Date()
+                            }
+                        },
+                        upsert: true
+                    }
+                });
             }
 
             // Execute all 50 database modifications in one network payload
             if (bulkOperations.length > 0)
             {
                 const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
-                console.log(`Successfully updated database for batch ${index + 1}. Upserted/Modified: ${result.upsertedCount + result.modifiedCount}`);
+                console.log(`Successfully updated database for batch ${index + 1} of Daily Values. Modified: ${result.upsertedCount + result.modifiedCount}`);
             }
 
-            // Optional short cooldown to avoid hitting Alpaca tier ceilings
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
         } catch (batchError)
         {
@@ -399,11 +355,10 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    //    updateDailyValuesPostClose()
-    //updateVolumePreOpen()
-    cron.schedule('15 9 * * *', () => { trialForOptions() })
-    cron.schedule('25 9 * * *', () => { updateOpenVolume() })
-    cron.schedule('30 16 * * *', () => { updateDailyValuesPostClose() })
+    updateMorningMetricsPreOpen()
+    cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
+    cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
+    cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
 }
 
 module.exports = { initScheduler };

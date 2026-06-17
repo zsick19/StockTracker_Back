@@ -218,8 +218,6 @@ function seedHistoricalVolumeWithPreMarket(historyCandles, avgMorningHighTime, a
         preMarketUpThirtyMinBlocks: compilePreMarketArray(rawPreMarketUpDays),
         preMarketDownThirtyMinBlocks: compilePreMarketArray(rawPreMarketDownDays)
     };
-
-
 }
 
 
