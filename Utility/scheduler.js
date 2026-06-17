@@ -146,11 +146,12 @@ async function updateMorningMetricsPreOpen()
                 {
                     const extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
                     const morningMetricsResults = calculateOpenTimeAndStretchMetrics(fiveMinCandleData)
+                    const extremeProbByFiveMin = calculateHighLowTimeDistribution(fiveMinCandleData)
+
                     let openVolumeMetrics
                     if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
                         openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
-                    let results = calculateHighLowTimeDistribution(fiveMinCandleData)
-                    console.log(results)
+                    console.log(extremeProbByFiveMin)
 
                     // bulkOperations.push({
                     //     updateOne: {
@@ -160,6 +161,7 @@ async function updateMorningMetricsPreOpen()
                     //                 extentProb: extentProbResults,
                     //                 morningMetrics: morningMetricsResults,
                     //                 morningVolumeMetrics: openVolumeMetrics,
+                    //                 extremeProbByFiveMin:extremeProbByFiveMin
                     //                 dateMorningMetricsLastCalculated: new Date()
                     //             }
                     //         },
