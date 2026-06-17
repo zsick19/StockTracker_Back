@@ -124,6 +124,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     cascadePattern: {
         points: { type: [pointsSchema], default: undefined },
         projection: {
+            patternPocCeiling: Number,
             avgDropGainPercent: Number,
             avgDownDuration: Number,
             anchorPeak: Number,
