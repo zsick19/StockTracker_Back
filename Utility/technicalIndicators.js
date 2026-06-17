@@ -614,6 +614,26 @@ function seedHistoricalOpeningHourVolume(historyCandles, avgMorningHighTime, avg
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Processes historical 5-minute candles using a 15-minute whiplash buffer.
  * Calculates baseline opening averages as pure arrays, and adds a separate sequential array

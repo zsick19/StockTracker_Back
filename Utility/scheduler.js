@@ -3,7 +3,7 @@ const EnterExitPlannedStock = require('../models/EnterExitPlannedStock')
 const asyncHandler = require("express-async-handler");
 const User = require('../models/User');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
-const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI, seedHistoricalVolumeWithPreMarket, calculateExtendedSessionProbabilities, calculateCompleteMorningMetrics, calculateCorrelation, seedHistoricalOpeningHourVolume, calculateMorningWalls } = require('./technicalIndicators');
+const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI, calculateExtendedSessionProbabilities, calculateCompleteMorningMetrics, calculateCorrelation, seedHistoricalOpeningHourVolume, calculateMorningWalls } = require('./technicalIndicators');
 const { subBusinessDays } = require('date-fns/subBusinessDays');
 const { sectorToTicker } = require('./sectorAndTicker');
 const { retryOperation } = require('./sharedUtility');
@@ -13,6 +13,8 @@ const { isBefore } = require('date-fns/isBefore');
 const { projectAdaptiveChannelWithOptimizedCeiling } = require('./technicalCalculations/DailyPatternGenerators/horizontalPatternGenerator');
 const { projectContinuationTrendMetrics } = require('./technicalCalculations/DailyPatternGenerators/continuationPatternGenerator');
 const { processNightlyCascadeMaintenance } = require('./technicalCalculations/DailyPatternGenerators/nightlyCascadeMaintenance');
+const { addBusinessDays } = require('date-fns/addBusinessDays');
+const { seedHistoricalVolumeWithPreMarket } = require('./technicalCalculations/IntraDayMetrics/morningVolumeMetrics');
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -86,8 +88,7 @@ async function updateOpenVolume()
                 }
                 let morningMetrics = { upSide: { ...morningMetricsResults.upsideMetrics }, downSide: { ...morningMetricsResults.downsideMetrics }, dateCalculated: new Date() }
 
-                const morningVolResults = seedHistoricalVolumeWithPreMarket(candleData, morningMetricsResults.upsideMetrics.averageTimeToPeak,
-                    morningMetricsResults.downsideMetrics.averageTimeToBottom)
+                const morningVolResults = seedHistoricalVolumeWithPreMarket(candleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
                 const updatedEnterExitPlan = await EnterExitPlannedStock.findByIdAndUpdate(enterExitPlan._id, {
                     $set: {
                         extentProb: extentProb,
@@ -108,6 +109,107 @@ async function updateOpenVolume()
 
 
 }
+async function updateVolumePreOpen()
+{
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol relevantCandleDate')
+
+    let totalPlanCount = 0
+    let oldestRelevantDate = new Date()
+    let tickerList = foundPlans.map(t =>
+    {
+        if (isBefore(t.relevantCandleDate, oldestRelevantDate)) oldestRelevantDate = t.relevantCandleDate
+        totalPlanCount++
+        // console.log(t)
+
+        return { symbol: t.tickerSymbol, relevantCandleDate: t?.relevantCandleDate }
+    })
+
+    //oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
+
+    function chunkArray(array, size)
+    {
+        const result = [];
+        for (let i = 0; i < array.length; i += size) { result.push(array.slice(i, i + size)) }
+        return result;
+    }
+
+    // const startDate = subBusinessDays(new Date(), 180 + 10)
+
+    // const sectorDailyBar = await alpaca.getMultiBarsV2(['SPY', 'QQQ', 'DIA', 'IWM', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE'],
+    //     { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate })
+
+
+    // Split your massive list into safe 50-ticker sub-arrays
+    const batches = chunkArray(tickerList, 50);
+    // Sequential loop through chunks to protect API rate limits
+    for (const [index, batch] of batches.entries())
+    {
+        try
+        {
+            const onlyTickersFromBatch = tickerList.map(t => t.symbol)
+            //const [fiveMinCandles, snapshotsMap] = await alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, })
+
+            const bulkOperations = [];
+            // Map over the chunk keys to perform calculations
+            for (const stock of batch)
+            {
+                if (!stock.relevantCandleDate)
+                {
+                    console.log(stock)
+
+                    //     // let fiveMin = fiveMinCandles.get(stock.symbol)
+                    //     // const time = new Date(stock.relevantCandleDate).getTime()
+
+                    //     // let fiveMinCandleData = fiveMin.filter(t => { return new Date(t.Timestamp).getTime() < time })
+
+                    //     // let extentProb
+
+                    //     // if (fiveMinCandleData && fiveMinCandleData.length > 0)
+                    //     // {
+                    //     //     let extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
+                    //     //     let morningMetricsResults = calculateCompleteMorningMetrics(fiveMinCandleData)
+                    //     //     let openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
+
+                    //     // }
+
+                    //     console.log(stock.relevantCandleDate)
+                    //     //Construct efficient upsert bulk actions
+                    bulkOperations.push({
+                        updateOne: {
+                            filter: { tickerSymbol: stock.symbol },
+                            update: {
+                                $set: {
+                                    updateNeededDate: new Date()
+                                    //                               dateMorningMetricsLastCalculated:new Date()
+                                }
+                            },
+                            upsert: true
+                        }
+                    });
+                }
+            }
+
+            // Execute all 50 database modifications in one network payload
+            if (bulkOperations.length > 0)
+            {
+                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
+                console.log(`Successfully updated database for batch ${index + 1}. Upserted/Modified: ${result.upsertedCount + result.modifiedCount}`);
+            }
+
+            // Optional short cooldown to avoid hitting Alpaca tier ceilings
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+        } catch (batchError)
+        {
+            console.error(`Error encountered processing batch ${index + 1}:`, batchError.message);
+            // Script continues to next batch safely instead of crashing completely
+        }
+    }
+}
+
+
+
+
 async function updateDailyValuesPostClose()
 {
 
@@ -125,7 +227,7 @@ async function updateDailyValuesPostClose()
         else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
         else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
 
-        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
+        return { symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
     })
     oldestRelevantDate = new Date(oldestRelevantDate).toISOString().split('T')[0];
 
@@ -151,26 +253,24 @@ async function updateDailyValuesPostClose()
         try
         {
             const onlyTickersFromBatch = tickerList.map(t => t.symbol)
-            //if current time is past 4pm use today otherwise use yesterday
 
-            // const [barsMap, fiveMinCandles, snapshotsMap] = await Promise.all([
-            //     alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate, }),
-            //     alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, }),
-            //     alpaca.getSnapshots(onlyTickersFromBatch)
-            // ]);
-            const [barsMap, snapshotsMap] = await Promise.all([
+            const [barsMap, fiveMinCandles, snapshotsMap] = await Promise.all([
                 alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY), start: startDate, }),
+                alpaca.getMultiBarsV2(onlyTickersFromBatch, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: oldestRelevantDate, }),
                 alpaca.getSnapshots(onlyTickersFromBatch)
             ]);
-
-
 
             const bulkOperations = [];
             // Map over the chunk keys to perform calculations
             for (const stock of batch)
             {
                 const candleData = barsMap.get(stock.symbol);
-                // const fiveMinCandleDate = fiveMinCandles.get(stock.symbol);
+                let fiveMin = fiveMinCandles.get(stock.symbol)
+                const time = new Date(stock.relevantCandleDate.date).getTime()
+
+
+
+                let fiveMinCandleData = fiveMin.filter(t => { return new Date(t.Timestamp).getTime() < time })
                 const snapShot = snapshotsMap.find(t => t.symbol === stock.symbol);
 
                 let calculatedDailyValues
@@ -178,6 +278,7 @@ async function updateDailyValuesPostClose()
                 let channelPattern
                 let cascadePattern
                 let continuationPattern
+                let extentProb
                 let maxCorrelation = null;
 
                 if (candleData && candleData.length > 0)
@@ -212,43 +313,66 @@ async function updateDailyValuesPostClose()
                             maxCorrelation = key;
                         }
                     }
+
                     switch (stock.classification)
                     {
                         case 'cascade':
-                            //need to filter daily candles down to just anchor date on pattern
-                            console.log('processing cascade')
-                            console.log(stock.anchor, stock.symbol)
-                            cascadePattern = processNightlyCascadeMaintenance(stock.cascadePattern, candleData.at(-1))
-                            console.log(cascadePattern)
+                            let nightlyResults = processNightlyCascadeMaintenance(stock.cascadePattern, candleData.at(-1))
+                            if (nightlyResults.systemStatus === 'OVERWRITE_PEAK_ANCHOR')
+                            {
+                                cascadePattern = {
+                                    ...stock.cascadePattern,
+                                    projection: {
+                                        ...stock.cascadePattern.projection,
+                                        anchorPeak: nightlyResults.updatedFields.anchorPeak.price,
+                                        priceIdeal: nightlyResults.updatedFields.priceIdeal,
+                                        projectedDate: addBusinessDays(nightlyResults.updatedFields.anchorPeak.date, stock.cascadePattern.projection.avgDownDuration),
+                                        priceFloor: parseFloat((nightlyResults.updatedFields.priceIdeal - (nightlyResults.updatedFields.priceIdeal * (stock.cascadePattern.projection.buffer / 100))).toFixed(2)),
+                                        priceCeiling: parseFloat((nightlyResults.updatedFields.priceIdeal + (nightlyResults.updatedFields.priceIdeal * (stock.cascadePattern.projection.buffer / 100))).toFixed(2))
+                                    },
+                                    points: [...stock.cascadePattern.points.slice(0, -1), nightlyResults.updatedFields.anchorPeak]
+                                }
+                            }
                             break;
                         case 'channel':
                             channelPattern = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
-                            console.log('processing channel')
                             break;
                         case 'continuation':
                             continuationPattern = projectContinuationTrendMetrics(candleData, stock.anchor, calculatedDailyValues.spyBetaValue)
-                            console.log('processing continuation')
                             break;
                     }
-
                 }
 
+                if (fiveMinCandleData && fiveMinCandleData.length > 0)
+                {
+                    let extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
+                    let morningMetricsResults = calculateCompleteMorningMetrics(fiveMinCandleData)
+                    let openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upsideMetrics.averageTimeToPeak, morningMetricsResults.downsideMetrics.averageTimeToBottom)
+                    console.log(stock.symbol)
+                    console.log(extentProbResults)
+                    console.log(morningMetricsResults)
+                    console.log(openVolumeMetrics)
+                }
+
+
                 // Construct efficient upsert bulk actions
-                bulkOperations.push({
-                    updateOne: {
-                        filter: { tickerSymbol: stock.symbol },
-                        update: {
-                            $set: {
-                                dailyTickerValues: calculatedDailyValues,
-                                correlationValues: calculatedCorrelationValues,
-                                greatestCorrelation: maxCorrelation,
-                                channelPattern: channelPattern,
-                                continuationPattern: continuationPattern
-                            }
-                        },
-                        upsert: true
-                    }
-                });
+                // bulkOperations.push({
+                //     updateOne: {
+                //         filter: { tickerSymbol: stock.symbol },
+                //         update: {
+                //             $set: {
+                //                 dailyTickerValues: calculatedDailyValues,
+                //                 correlationValues: calculatedCorrelationValues,
+                //                 greatestCorrelation: maxCorrelation,
+                //                 channelPattern: channelPattern,
+                //                 continuationPattern: continuationPattern,
+                //                 cascadePattern: cascadePattern,
+                //                 datePatternLastCalculated: new Date()
+                //             }
+                //         },
+                //         upsert: true
+                //     }
+                // });
             }
 
             // Execute all 50 database modifications in one network payload
@@ -275,7 +399,8 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateDailyValuesPostClose()
+    //    updateDailyValuesPostClose()
+    //updateVolumePreOpen()
     cron.schedule('15 9 * * *', () => { trialForOptions() })
     cron.schedule('25 9 * * *', () => { updateOpenVolume() })
     cron.schedule('30 16 * * *', () => { updateDailyValuesPostClose() })

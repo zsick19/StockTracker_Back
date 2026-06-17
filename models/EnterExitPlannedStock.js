@@ -25,7 +25,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         percents: [Number],
         dateCreated: Date
     },
-    relevantCandleDate: { date: Date, created: Date },
+    relevantCandleDate: Date,
     highImportance: Date,
     updateNeededDate: Date,
     watchForTomorrow: Date,
@@ -42,7 +42,6 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     relevantHighs: [relevantPriceSchema],
     relevantLows: [relevantPriceSchema],
     priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
-
 
 
     dailyTickerValues: {
@@ -178,6 +177,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     },
     patternClassification: String,
     datePatternLastCalculated: Date,
+    dateMorningMetricsLastCalculated: Date,
 
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

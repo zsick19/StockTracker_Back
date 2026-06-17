@@ -7,17 +7,16 @@ function processNightlyCascadeMaintenance(existingPlanDoc, todaysDailyCandle, en
 {
     const todayHigh = todaysDailyCandle.HighPrice;
     const todayClose = todaysDailyCandle.ClosePrice;
-    const todayDateStr = todaysDailyCandle.Timestamp.split('T');
+    const todayDateStr = todaysDailyCandle.Timestamp.split('T')[0];
 
     // Pull your current saved peak anchor variables from the database document
-    let currentSavedPeakPrice = existingPlanDoc.anchorPeakPrice;
-    let currentRelevantDate = existingPlanDoc.mostRelevantCandleDate;
+    let currentSavedPeakPrice = existingPlanDoc.projection.anchorPeak;
+    let currentRelevantDate = existingPlanDoc.points.at(-1).date;
 
     // Calculate the Enter Buffer Zone line where a reversal is confirmed
     const enterBufferLine = currentSavedPeakPrice * (1 - enterBufferPercent);
 
     let systemStatus = "HOLD_STATE";
-
     // 1. CONDITION A: Today printed a higher high -> Trend is extending
     if (todayHigh > currentSavedPeakPrice && todayClose > enterBufferLine)
     {
@@ -34,9 +33,8 @@ function processNightlyCascadeMaintenance(existingPlanDoc, todaysDailyCandle, en
     return {
         systemStatus,
         updatedFields: {
-            anchorPeakPrice: currentSavedPeakPrice,
-            mostRelevantCandleDate: currentRelevantDate,
-            enterBufferZonePrice: parseFloat(enterBufferLine.toFixed(2))
+            anchorPeak: { date: new Date(currentRelevantDate), price: currentSavedPeakPrice },
+            priceIdeal: parseFloat(enterBufferLine.toFixed(2)),
         }
     };
 }
