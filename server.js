@@ -42,6 +42,7 @@ app.use("/", require("./routes/root")); //for first test
 app.use("/auth", require("./routes/authRoutes"));
 
 app.use(authenticateToken)
+app.use('/engine', require('./routes/engineRoutes'))
 app.use("/user", require("./routes/userRoutes"));
 app.use("/stockData", require("./routes/stockDataRoutes"));
 app.use("/chartingData", require("./routes/chartingDataRoutes"));
