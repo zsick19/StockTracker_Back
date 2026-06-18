@@ -23,6 +23,7 @@ const { seedHistoricalVolumeWithPreMarket } = require('./technicalCalculations/I
 const { calculateExtendedSessionProbabilities } = require('./technicalCalculations/IntraDayMetrics/highLowProbabilityMetric');
 const { calculateOpenTimeAndStretchMetrics } = require('./technicalCalculations/IntraDayMetrics/openTimeAndStretchMetrics');
 const { calculateHighLowTimeDistribution } = require('./technicalCalculations/IntraDayMetrics/highLowTimeSlotDistribution');
+const { calculateNightlyDailyVolumePoc } = require('./technicalCalculations/DailyPatternGenerators/patternPOC');
 
 
 
@@ -53,6 +54,10 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // }
 
 
+
+
+
+
 async function updateHighImportanceAndTradeMorningMetrics()
 {
     const importantEnterExitPlans = await EnterExitPlannedStock.find({
@@ -78,6 +83,8 @@ async function updateHighImportanceAndTradeMorningMetrics()
                 {
                     const extentProbResults = calculateExtendedSessionProbabilities(fiveMinCandleData)
                     const morningMetricsResults = calculateOpenTimeAndStretchMetrics(fiveMinCandleData)
+                    const extremeProbByFiveMin = calculateHighLowTimeDistribution(fiveMinCandleData)
+
                     let openVolumeMetrics
                     if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
                         openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
@@ -87,7 +94,9 @@ async function updateHighImportanceAndTradeMorningMetrics()
                         $set: {
                             extentProb: extentProbResults,
                             morningMetrics: morningMetricsResults,
-                            morningVolumeMetrics: openVolumeMetrics
+                            morningVolumeMetrics: openVolumeMetrics,
+                            extremeProbByFiveMin: extremeProbByFiveMin,
+
                         }
                     })
                     await delay(3000);
@@ -102,8 +111,6 @@ async function updateHighImportanceAndTradeMorningMetrics()
 
     console.log(`${importantEnterExitPlans.length} High Importance Plans and Trades were updated with metrics`)
 }
-
-
 
 async function updateMorningMetricsPreOpen()
 {
@@ -151,23 +158,22 @@ async function updateMorningMetricsPreOpen()
                     let openVolumeMetrics
                     if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
                         openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
-                    console.log(extremeProbByFiveMin)
 
-                    // bulkOperations.push({
-                    //     updateOne: {
-                    //         filter: { tickerSymbol: stock.symbol },
-                    //         update: {
-                    //             $set: {
-                    //                 extentProb: extentProbResults,
-                    //                 morningMetrics: morningMetricsResults,
-                    //                 morningVolumeMetrics: openVolumeMetrics,
-                    //                 extremeProbByFiveMin:extremeProbByFiveMin
-                    //                 dateMorningMetricsLastCalculated: new Date()
-                    //             }
-                    //         },
-                    //         upsert: true
-                    //     }
-                    // });
+                    bulkOperations.push({
+                        updateOne: {
+                            filter: { tickerSymbol: stock.symbol },
+                            update: {
+                                $set: {
+                                    extentProb: extentProbResults,
+                                    morningMetrics: morningMetricsResults,
+                                    morningVolumeMetrics: openVolumeMetrics,
+                                    extremeProbByFiveMin: extremeProbByFiveMin,
+                                    dateMorningMetricsLastCalculated: new Date()
+                                }
+                            },
+                            upsert: true
+                        }
+                    });
                 }
                 else
                 {
@@ -191,9 +197,6 @@ async function updateMorningMetricsPreOpen()
     }
 }
 
-
-
-
 async function updateDailyValuesPostClose()
 {
 
@@ -209,7 +212,7 @@ async function updateDailyValuesPostClose()
         else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
         else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
 
-        return { symbol: t.tickerSymbol, sector: t.sector, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
+        return { symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
     })
 
     function chunkArray(array, size)
@@ -282,9 +285,13 @@ async function updateDailyValuesPostClose()
                         }
                     }
 
+
+
                     switch (stock.classification)
                     {
                         case 'cascade':
+                            let POC = calculateNightlyDailyVolumePoc(candleData, stock.relevantCandleDate)
+
                             let nightlyResults = processNightlyCascadeMaintenance(stock.cascadePattern, candleData.at(-1))
                             if (nightlyResults.systemStatus === 'OVERWRITE_PEAK_ANCHOR')
                             {
@@ -292,6 +299,7 @@ async function updateDailyValuesPostClose()
                                     ...stock.cascadePattern,
                                     projection: {
                                         ...stock.cascadePattern.projection,
+                                        patternPocCeiling: POC,
                                         anchorPeak: nightlyResults.updatedFields.anchorPeak.price,
                                         priceIdeal: nightlyResults.updatedFields.priceIdeal,
                                         projectedDate: addBusinessDays(nightlyResults.updatedFields.anchorPeak.date, stock.cascadePattern.projection.avgDownDuration),
@@ -299,6 +307,16 @@ async function updateDailyValuesPostClose()
                                         priceCeiling: parseFloat((nightlyResults.updatedFields.priceIdeal + (nightlyResults.updatedFields.priceIdeal * (stock.cascadePattern.projection.buffer / 100))).toFixed(2))
                                     },
                                     points: [...stock.cascadePattern.points.slice(0, -1), nightlyResults.updatedFields.anchorPeak]
+                                }
+                            } else
+                            {
+                                cascadePattern = {
+                                    ...stock.cascadePattern,
+                                    projection: {
+                                        ...stock.cascadePattern.projection,
+                                        patternPocCeiling: POC,
+                                        
+                                    }
                                 }
                             }
                             break;
@@ -357,7 +375,7 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateMorningMetricsPreOpen()
+    updateDailyValuesPostClose()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
