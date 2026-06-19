@@ -11,6 +11,7 @@ const TradeRecord = require("../models/TradeRecord");
 const AccountPL = require('../models/AccountPL')
 const MacroChartedStock = require('../models/MacroChartedStock');
 const { isWeekend, previousFriday, previousThursday, subBusinessDays } = require("date-fns");
+const Stock = require("../models/Stock");
 
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
@@ -24,12 +25,7 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
   const foundUser = await User.findById(req.userId).populate('userStockHistory');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-  // const oldestDate = await EnterExitPlannedStock.findOne({
-  //   'relevantCandleDate.date': { $exists: true }
-  // }).sort({ 'relevantCandleDate.date': 1 }).select('relevantCandleDate.date tickerSymbol')
-  // console.log(oldestDate)
-  // foundUser.oldestRelevantDateToFetch = oldestDate.relevantCandleDate.date
-  // await foundUser.save()
+
 
   let taskData = { userId: foundUser._id, refreshUsersStreamingTickers: true }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)

@@ -9,7 +9,13 @@ const { retryOperation } = require("../Utility/sharedUtility");
 const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
-    const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks' }).select('planAndTrackedStocks -_id');
+    const foundUser = await User.findById(req.userId).populate({
+        path: 'planAndTrackedStocks',
+        populate: {
+            path: 'stockId'
+        }
+    }).select('planAndTrackedStocks -_id');
+
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
     const fiveMinTickers = []
     const oneMinTickers = []
@@ -20,7 +26,7 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
         if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol)
         else { fiveMinTickers.push(t.tickerSymbol) }
     })
-
+    console.log(foundUser.planAndTrackedStocks[0])
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
@@ -51,6 +57,7 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
                 let singleSnap = snapShots.find(ss => ss.symbol === t.tickerSymbol)
                 return { plan: t, candleData: candleData[t.tickerSymbol], snapShot: singleSnap, tradeData: jsonCompatible[t.tickerSymbol] }
             })
+
             res.json(results);
         })
     } catch (error)

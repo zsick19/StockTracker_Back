@@ -10,8 +10,13 @@ const pointsSchema = new mongoose.Schema({
     price: Number
 }, { _id: false })
 
+const highLowSlotSchema = new mongoose.Schema({
+    highProb: Number,
+    lowProb: Number
+}, { _id: false })
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
+    stockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock" },
     sector: { type: String },
     plan: {
         enterBufferPrice: Number,
@@ -88,7 +93,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         closeH: Number,
         closeL: Number,
     },
-    extremeProbByFiveMin: [{ highProb: Number, lowProb: Number }, { _id: false }],
+    extremeProbByFiveMin: [highLowSlotSchema],
     morningMetrics: {
         downSide: {
             sampleSizeDays: Number,
