@@ -78,7 +78,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     },
     greatestCorrelation: String,
 
-
+    maintainLiveCandles: Boolean,
 
     extentProb: {
         openH: Number,
@@ -88,7 +88,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         closeH: Number,
         closeL: Number,
     },
-    extremeProbByFiveMin: [{ highProb: Number, lowProb: Number }],
+    extremeProbByFiveMin: [{ highProb: Number, lowProb: Number }, { _id: false }],
     morningMetrics: {
         downSide: {
             sampleSizeDays: Number,

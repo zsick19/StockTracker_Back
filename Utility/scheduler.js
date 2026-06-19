@@ -315,7 +315,7 @@ async function updateDailyValuesPostClose()
                                     projection: {
                                         ...stock.cascadePattern.projection,
                                         patternPocCeiling: POC,
-                                        
+
                                     }
                                 }
                             }
@@ -375,7 +375,6 @@ async function updateDailyValuesPostClose()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateDailyValuesPostClose()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
