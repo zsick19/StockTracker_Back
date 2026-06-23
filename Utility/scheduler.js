@@ -74,7 +74,7 @@ async function updateHighImportanceAndTradeMorningMetrics()
         {
             await retryOperation(async () =>
             {
-                const startDate = enterExitPlan?.relevantCandleDate.split('T')[0]
+                const startDate = enterExitPlan?.relevantCandleDate
                 const fiveMinCandles = await alpaca.getBarsV2(enterExitPlan.tickerSymbol, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
                 const fiveMinCandleData = [];
                 for await (let b of fiveMinCandles) { fiveMinCandleData.push(b); }

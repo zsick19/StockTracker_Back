@@ -1,11 +1,15 @@
 const User = require("../models/User");
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock');
+const MacroChartedStock = require('../models/MacroChartedStock')
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 const asyncHandler = require("express-async-handler");
 const { isWeekend, previousFriday, previousThursday, subBusinessDays, endOfYesterday, subMinutes } = require("date-fns");
 const { retryOperation } = require("../Utility/sharedUtility");
+const { Mongoose, default: mongoose } = require("mongoose");
 
+
+const macroAndSectorTickers = ['SPY', 'QQQ', 'IWM', 'DIA', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE']
 const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
@@ -15,8 +19,20 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
             path: 'stockId'
         }
     }).select('planAndTrackedStocks -_id');
-
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+    // const targetId = new mongoose.Types.ObjectId('65a123456789abcdef012345'); // The MongoDB 
+    const userIdMongoDb = new mongoose.Types.ObjectId(req.userId)
+    const foundMacroPlans = await MacroChartedStock.aggregate([
+        // 1. Match documents that contain the target ID and at least one array value
+        {
+            $match: {
+                chartedBy: userIdMongoDb,
+                tickerSymbol: { $in: macroAndSectorTickers }
+            }
+        }])
+
+
     const fiveMinTickers = []
     const oneMinTickers = []
     const allPlans = []
@@ -26,7 +42,11 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
         if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol)
         else { fiveMinTickers.push(t.tickerSymbol) }
     })
-    console.log(foundUser.planAndTrackedStocks[0])
+
+    foundMacroPlans.forEach((t) =>
+    {
+        allPlans.push(t.tickerSymbol)
+    })
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
@@ -39,26 +59,38 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
     {
         await retryOperation(async () =>
         {
-            const [snapShots, oneMinTradesData, oneMinData, fiveMinData] = await Promise.all([
+            const [snapShots, oneMinTradesData, oneMinData, fiveMinData, macroData] = await Promise.all([
                 alpaca.getSnapshots(allPlans),
                 alpaca.getMultiTradesV2(oneMinTickers, { start: startMin }),
                 alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: threeDayStart, end: yesterday }),
-                alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
+                alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday }),
+                alpaca.getMultiBarsV2(macroAndSectorTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
             ])
+
+
+
             const candleData = {}
+            const macroCandleData = {}
             for await (let singleStock of oneMinData) { candleData[singleStock[0]] = singleStock[1] }
             for await (let singleStock of fiveMinData) { candleData[singleStock[0]] = singleStock[1] }
+            for await (let singleStock of macroData) { macroCandleData[singleStock[0]] = singleStock[1] }
 
             const jsonCompatible = Object.fromEntries(oneMinTradesData)
 
 
-            let results = foundUser.planAndTrackedStocks.map((t) =>
+            let plansResults = foundUser.planAndTrackedStocks.map((t) =>
             {
                 let singleSnap = snapShots.find(ss => ss.symbol === t.tickerSymbol)
                 return { plan: t, candleData: candleData[t.tickerSymbol], snapShot: singleSnap, tradeData: jsonCompatible[t.tickerSymbol] }
             })
 
-            res.json(results);
+            let macroResults = foundMacroPlans.map((t) =>
+            {
+                let singleSnap = snapShots.find(ss => ss.symbol === t.tickerSymbol)
+                return { macroPlan: t, candleData: macroCandleData[t.tickerSymbol], snapShot: singleSnap }
+            })
+
+            res.json({ plans: plansResults, macros: macroResults });
         })
     } catch (error)
     {
@@ -72,20 +104,27 @@ const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-    const tickersForHistoricalData = foundUser.planAndTrackedStocks.map(t => t.tickerSymbol)
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
+    const tickersForHistoricalData = foundUser.planAndTrackedStocks.map(t => t.tickerSymbol)
 
+
+    tickersForHistoricalData.push(...macroAndSectorTickers)
     try
     {
         await retryOperation(async () =>
         {
             const tickerData = await alpaca.getMultiBarsV2(tickersForHistoricalData, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
-            for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
-            res.json(candleData);
+            const macroCandleData = {}
+            for await (let singleStock of tickerData)
+            {
+                if (macroAndSectorTickers.includes(singleStock[0])) macroCandleData[singleStock[0]] = singleStock[1]
+                else candleData[singleStock[0]] = singleStock[1]
+            }
+            res.json({ planData: candleData, macroData: macroCandleData });
         })
     } catch (error)
     {
@@ -100,12 +139,12 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-    const tickersForHistoricalData = []
-    foundUser.planAndTrackedStocks.forEach(t => { if (!t.maintainLiveCandles) tickersForHistoricalData.push(t.tickerSymbol) })
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
+    const tickersForHistoricalData = []
+    foundUser.planAndTrackedStocks.forEach(t => { if (!t.maintainLiveCandles) tickersForHistoricalData.push(t.tickerSymbol) })
 
     try
     {
@@ -114,7 +153,7 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
             const tickerData = await alpaca.getMultiBarsV2(tickersForHistoricalData, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
             for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
-            res.json(candleData);
+            res.json({ planData: candleData });
         })
     } catch (error)
     {
@@ -128,22 +167,26 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-    const oneMinTickers = []
-    foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
-
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
-
+    const oneMinTickers = []
+    foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
+    oneMinTickers.push(...macroAndSectorTickers)
     try
     {
         await retryOperation(async () =>
         {
             const tickerData = await alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
-            for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
-            res.json(candleData);
+            const macroCandleData = {}
+            for await (let singleStock of tickerData)
+            {
+                if (macroAndSectorTickers.includes(singleStock[0])) macroCandleData[singleStock[0]] = singleStock[1]
+                else candleData[singleStock[0]] = singleStock[1]
+            }
+            res.json({ planData: candleData, macroData: macroCandleData });
         })
     } catch (error)
     {
@@ -159,10 +202,10 @@ const fetchTradeEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-    const oneMinTickers = []
-    foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
 
+    const oneMinTickers = []
     const startMin = subMinutes(new Date(), 2)
+    foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
 
     try
     {

@@ -76,7 +76,7 @@ function calculateOpenTimeAndStretchMetrics(candles)
         let ampm = h >= 12 ? "PM" : "AM";
         h = h % 12;
         h = h ? h : 12; // Convert 0 to 12
-        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+        return { hour: h, minute: m }
     };
 
     // 3. Evaluate Day-by-Day Sequences
