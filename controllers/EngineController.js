@@ -13,24 +13,30 @@ const macroAndSectorTickers = ['SPY', 'QQQ', 'IWM', 'DIA', 'XLV', 'XLP', 'XLI', 
 const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
-    const foundUser = await User.findById(req.userId).populate({
-        path: 'planAndTrackedStocks',
-        populate: {
-            path: 'stockId'
-        }
-    }).select('planAndTrackedStocks -_id');
+    const foundUser = await User.findById(req.userId)
+        .populate({ path: 'planAndTrackedStocks', populate: { path: 'stockId' } })
+        .select('planAndTrackedStocks -_id');
+
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    // const targetId = new mongoose.Types.ObjectId('65a123456789abcdef012345'); // The MongoDB 
-    const userIdMongoDb = new mongoose.Types.ObjectId(req.userId)
     const foundMacroPlans = await MacroChartedStock.aggregate([
-        // 1. Match documents that contain the target ID and at least one array value
         {
             $match: {
-                chartedBy: userIdMongoDb,
+                chartedBy: new mongoose.Types.ObjectId(req.userId),
                 tickerSymbol: { $in: macroAndSectorTickers }
             }
-        }])
+        },
+        {
+            $project: {
+                charting: 0,
+                chartedBy: 0,
+                "weeklyEM.previousWeeklyEM": 0,
+                "monthlyEM.previousMonthlyEM": 0,
+                "quarterlyEM.previousQuarterlyEM": 0
+            },
+        }
+    ]
+    )
 
 
     const fiveMinTickers = []
@@ -99,6 +105,7 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
     }
 });
 
+
 const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
@@ -134,6 +141,7 @@ const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
 
 })
 
+
 const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
@@ -161,6 +169,7 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
         res.status(500).json({ message: 'error requesting stock data' })
     }
 })
+
 
 const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
 {
@@ -196,11 +205,12 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
 })
 
 
-
 const fetchTradeEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
-    const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
+    const foundUser = await User.findById(req.userId)
+        .populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' })
+        .select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
     const oneMinTickers = []
@@ -213,7 +223,7 @@ const fetchTradeEngineData = asyncHandler(async (req, res) =>
         {
             const tickerData = await alpaca.getMultiTradesV2(oneMinTickers, { start: startMin })
             const jsonCompatible = Object.fromEntries(tickerData)
-            res.json(jsonCompatible)
+            res.json({ tradeData: jsonCompatible })
         })
     } catch (error)
     {
