@@ -9,7 +9,7 @@ const { retryOperation } = require("../Utility/sharedUtility");
 const { Mongoose, default: mongoose } = require("mongoose");
 
 
-const macroAndSectorTickers = ['SPY', 'QQQ', 'IWM', 'DIA', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE']
+const macroAndSectorTickers = ['SPY', 'RSP', 'QQQ', 'IWM', 'DIA', 'XLV', 'XLP', 'XLI', 'XLC', 'XLU', 'XLK', 'XLF', "XLB", 'XLE', 'XLY', 'XLRE']
 const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");

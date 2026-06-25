@@ -33,7 +33,8 @@ const CSV_HEADER_TRANSLATION_DICT = {
     "Short Ratio": "ShortRatioDaysToCover",
     "Gap (%)": "DaysGapPercent",
     "Pos. Range": "PositionInRangePercent",
-    "Short % Shares": "ShortPercentOfShares"
+    "Short % Shares": "ShortPercentOfShares",
+    "Shares Institut.":"InstitutionalSharePercent"
 };
 
 module.exports = { CSV_HEADER_TRANSLATION_DICT }
