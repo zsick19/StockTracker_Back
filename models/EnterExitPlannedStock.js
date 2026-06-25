@@ -14,6 +14,14 @@ const highLowSlotSchema = new mongoose.Schema({
     highProb: Number,
     lowProb: Number
 }, { _id: false })
+
+
+const supportResistanceSchema = new mongoose.Schema({
+    priceLevel: Number,
+    volumePct: Number,
+    frictionRating: String
+}, { _id: false })
+
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
     stockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock" },
@@ -180,10 +188,16 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
             }
         }
     },
+
+    volumeProfileMetrics: {
+        overHeadResistance: [supportResistanceSchema],
+        underlyingSupport: [supportResistanceSchema]
+    },
+
     patternClassification: String,
     datePatternLastCalculated: Date,
     dateMorningMetricsLastCalculated: Date,
-
+    dateVolumeProfileLastCalculated: Date,
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 

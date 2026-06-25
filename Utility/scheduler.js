@@ -24,6 +24,7 @@ const { calculateExtendedSessionProbabilities } = require('./technicalCalculatio
 const { calculateOpenTimeAndStretchMetrics } = require('./technicalCalculations/IntraDayMetrics/openTimeAndStretchMetrics');
 const { calculateHighLowTimeDistribution } = require('./technicalCalculations/IntraDayMetrics/highLowTimeSlotDistribution');
 const { calculateNightlyDailyVolumePoc } = require('./technicalCalculations/DailyPatternGenerators/patternPOC');
+const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVolumeProfile');
 
 
 
@@ -367,7 +368,6 @@ async function updateDailyValuesPostClose()
             // Script continues to next batch safely instead of crashing completely
         }
     }
-
 }
 
 
@@ -392,7 +392,9 @@ function initScheduler()
     console.log('Scheduler is initialized')
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
+
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
+    cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
 }
 
 module.exports = { initScheduler };
