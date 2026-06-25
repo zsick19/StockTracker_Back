@@ -13,7 +13,6 @@ const stockSchema = new mongoose.Schema({
     LastEarnings: Date,
     EarningsDate: Date,
     SharesFloat: Number,
-
     ShortPercentOfFloat: Number,
     FloatPercentage: Number,
     High52W: Number,
@@ -26,7 +25,7 @@ const stockSchema = new mongoose.Schema({
     DailyRsi: Number,
     MA20Price: Number,
     MA200Price: Number,
-    
+    InstitutionalSharePercent: Number,
     PreMarketPercentChange: Number,
     PreMarketVolume: Number,
     ShortRatioDaysToCover: Number,

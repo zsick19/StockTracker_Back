@@ -105,7 +105,7 @@ async function executeNightlyVolumeProfilePass()
                                 volumePct: parseFloat(volPct.toFixed(1)),
                                 frictionRating: friction
                             };
-                        }).sort((a, b) => b.priceLevel - a.priceLevel).slice(0, 3);
+                        }).sort((a, b) => b.volumePct - a.volumePct).slice(0, 3);
                     };
 
                     const parsedResistanceShelves = extractTopThreeShelves(overheadBuckets, totalOverheadVol);
@@ -201,7 +201,7 @@ async function executeNightlyVolumeProfilePass()
                                 volumePct: parseFloat(volPct.toFixed(1)),
                                 frictionRating: friction
                             };
-                        }).sort((a, b) => b.priceLevel - a.priceLevel).slice(0, 3);
+                        }).sort((a, b) => b.volumePct - a.volumePct).slice(0, 3);
                     };
 
 
