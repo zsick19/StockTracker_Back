@@ -372,6 +372,21 @@ async function updateDailyValuesPostClose()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 function initScheduler()
 {
     console.log('Scheduler is initialized')
