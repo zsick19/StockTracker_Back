@@ -1,3 +1,5 @@
+import Stock from '../models/Stock';
+
 const cron = require('node-cron')
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock')
 const asyncHandler = require("express-async-handler");
@@ -26,6 +28,7 @@ const { calculateHighLowTimeDistribution } = require('./technicalCalculations/In
 const { calculateNightlyDailyVolumePoc } = require('./technicalCalculations/DailyPatternGenerators/patternPOC');
 const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVolumeProfile');
 
+const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMarketData/optionsIngestionJob')
 
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -33,26 +36,18 @@ const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVol
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// async function trialForOptions()
-// {
-//     const underlyingSymbol = 'EOSE';
 
-//     // 2. Query and pipeline routing parameters
-//     // FIX: Passing timeframe bypasses the legacy SDK internal validation bug
-//     const queryParams = {
-//         feed: 'opra',         // Options data source feed
-//         // type: 'call',         // Optional: filter 'call' or 'put'
-//         limit: 100,           // Optional: quantity per page limit (Max 1000)
-//         // timeframe: '1Day'     // Dummy property to prevent SDK errors
-//     };
+/**
+ * Production Watchlist Chunker.
+ * Splits an array of any size into smaller, controlled operational batches.
+ */
 
-//     console.log(`Fetching full options chain snapshots for: ${underlyingSymbol}...`);
-
-//     // Call the specific option chain data client mapping
-//     const chain = await alpaca.getOptionChain(underlyingSymbol, queryParams);
-//     const callPutWallResults = calculateMorningWalls(chain)
-//     console.log(callPutWallResults)
-// }
+function chunkArray(array, size)
+{
+    const result = [];
+    for (let i = 0; i < array.length; i += size) { result.push(array.slice(i, i + size)) }
+    return result;
+}
 
 
 
@@ -127,12 +122,6 @@ async function updateMorningMetricsPreOpen()
 
 
 
-    function chunkArray(array, size)
-    {
-        const result = [];
-        for (let i = 0; i < array.length; i += size) { result.push(array.slice(i, i + size)) }
-        return result;
-    }
 
     // Split your massive list into safe 50-ticker sub-arrays
     const batches = chunkArray(tickerList, 50);
@@ -216,12 +205,7 @@ async function updateDailyValuesPostClose()
         return { symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
     })
 
-    function chunkArray(array, size)
-    {
-        const result = [];
-        for (let i = 0; i < array.length; i += size) { result.push(array.slice(i, i + size)) }
-        return result;
-    }
+
 
     // Split your massive list into safe 50-ticker sub-arrays
     const batches = chunkArray(tickerList, 50);
@@ -372,10 +356,56 @@ async function updateDailyValuesPostClose()
 
 
 
+/**
+ * Master Scheduled Options Pipeline Orchestrator.
+ * Safely throttles your entire active watchlist using 20-stock chunks to fully
+ * prevent data truncation, rate limiting, and memory overload.
+ */
+async function runCappedBatchOptionsPass()
+{
+
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol')
+
+    let tickerList = foundPlans.map(t => t.tickerSymbol)
+    const results = await Promise.all(tickerList.map(ticker => Stock.findOne({ Symbol: ticker, HasOptions: true })));
+    const fullWatchlistSymbols = results.filter(doc => doc !== null);
+
+    console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
 
 
+    // Split your full 60-ticker watchlist into clean, managed batches of 20
+    const targetedBatches = chunkArray(fullWatchlistSymbols, 20);
+    let masterUnifiedContractsDictionary = {};
 
+    for (const activeBatch of targetedBatches)
+    {
+        try
+        {
+            console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${activeBatch.join(', ')}]`);
 
+            // Invoke your existing batch request HTTPS utility script
+            // Each call stays well under the 10,000 options contract page response cap!
+            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(activeBatch);
+
+            // Merge the sub-batch dictionary directly into your master results layer
+            masterUnifiedContractsDictionary = {
+                ...masterUnifiedContractsDictionary,
+                ...batchContractsResult
+            };
+
+            // Introduce a brief 500ms network cooldown pause to completely protect your server 
+            // from hitting Alpaca rate limits or throttling gates
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+        } catch (subBatchError)
+        {
+            console.error(`❌ Ingestion Failure inside active batch:`, subBatchError);
+        }
+    }
+
+    // Return your pristine, completely populated multi-asset data dictionary map
+    return masterUnifiedContractsDictionary;
+}
 
 
 
