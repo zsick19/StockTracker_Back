@@ -12,10 +12,7 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray)
 {
     return new Promise((resolve, reject) =>
     {
-        if (!watchlistSymbolsArray || watchlistSymbolsArray.length === 0)
-        {
-            return resolve({});
-        }
+        if (!watchlistSymbolsArray || watchlistSymbolsArray.length === 0) { return resolve({}); }
 
         // 1. Join your string array cleanly using commas for URL parameter parsing
         // Transforms ["AAPL", "AMD"] straight into the string "AAPL,AMD"
@@ -23,10 +20,10 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray)
 
         const requestConfig = {
             method: 'GET',
-            hostname: 'data.alpaca.markets', // Production Options Data Gateway
+            hostname: 'api.alpaca.markets', // Production Options Data Gateway
             port: null,
             // We pass the consolidated list directly to our underlying_symbols param key
-            path: `/v2/options/contracts?underlying_symbols=${encodeURIComponent(unifiedTickerQueryString)}&status=active`,
+            path: `/v2/options/contracts?underlying_symbols=${encodeURIComponent(unifiedTickerQueryString)}&status=active&limit=2500`,
             headers: {
                 'accept': 'application/json',
                 'APCA-API-KEY-ID': process.env.ALPACA_API_KEY,
@@ -51,13 +48,11 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray)
                     const parsedJsonPayload = JSON.parse(completeRawBody);
 
                     const rawContractsArray = parsedJsonPayload.option_contracts || [];
+                    console.log(rawContractsArray)
 
                     // 2. Initialize a clean dictionary map to separate contracts by ticker
                     const groupedContractsMap = {};
-                    watchlistSymbolsArray.forEach(symbol =>
-                    {
-                        groupedContractsMap[symbol] = [];
-                    });
+                    watchlistSymbolsArray.forEach(symbol => { groupedContractsMap[symbol] = []; });
 
                     // 3. SINGLE PASS CLASSIFICATION LOOP
                     // Sort out the returning array contracts into their corresponding parent buckets

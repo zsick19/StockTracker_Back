@@ -1,7 +1,6 @@
-import Stock from '../models/Stock';
-
 const cron = require('node-cron')
 const EnterExitPlannedStock = require('../models/EnterExitPlannedStock')
+const Stock = require('../models/Stock')
 const asyncHandler = require("express-async-handler");
 const User = require('../models/User');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
@@ -364,22 +363,17 @@ async function updateDailyValuesPostClose()
 async function runCappedBatchOptionsPass()
 {
 
-    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol')
-
-    let tickerList = foundPlans.map(t => t.tickerSymbol)
-    const fullWatchlistSymbols = await Stock.find({
-        nameSymbolField: { $in: tickerList },
-        HasOptions: true
-    });
-
-
-    results.filter(doc => doc !== null);
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol patternClassification')
+    let tickerList = foundPlans.filter(t => t.patternClassification !== undefined).map(t => t.tickerSymbol)
+    console.log(tickerList)
+    const fullWatchlistSymbols = await Stock.find({ nameSymbolField: { $in: tickerList }, HasOptions: true });
+    // fullWatchlistSymbols.filter(doc => doc !== null);
 
     console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
 
-
+    let sampleArray = ['AAPL', 'SPY']
     // Split your full 60-ticker watchlist into clean, managed batches of 20
-    const targetedBatches = chunkArray(fullWatchlistSymbols, 20);
+    const targetedBatches = chunkArray(sampleArray, 20);
     let masterUnifiedContractsDictionary = {};
 
     for (const activeBatch of targetedBatches)
@@ -407,7 +401,7 @@ async function runCappedBatchOptionsPass()
             console.error(`❌ Ingestion Failure inside active batch:`, subBatchError);
         }
     }
-
+    console.log(masterUnifiedContractsDictionary)
     // Return your pristine, completely populated multi-asset data dictionary map
     return masterUnifiedContractsDictionary;
 }
@@ -425,8 +419,12 @@ async function runCappedBatchOptionsPass()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
+    //updateOptionsContractInformation()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
+        
+    //    cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
+    //    cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
