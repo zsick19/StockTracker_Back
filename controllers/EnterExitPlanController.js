@@ -8,7 +8,8 @@ const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService');
 const TradeRecord = require("../models/TradeRecord");
 const { calculateEMADataPoints, calculateATR, calculateCurrentSingleRSI, calculateExtendedSessionProbabilities, calculateCompleteMorningMetrics } = require("../Utility/technicalIndicators");
-const { isToday, subBusinessDays } = require('date-fns')
+const { isToday, subBusinessDays } = require('date-fns');
+const Stock = require("../models/Stock");
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
 
@@ -46,12 +47,13 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
   }
 
 
-
+  const foundStock = await Stock.findOne({ Symbol: foundChartableStock.tickerSymbol })
 
   const createdEnterExitPlannedStock = await EnterExitPlannedStock.create({
     _id: foundChartableStock._id,
     tickerSymbol: foundChartableStock.tickerSymbol,
     sector: foundChartableStock.sector,
+    hasOptions: foundStock.HasOptions || false,
     plan: { enterPrice, enterBufferPrice, stopLossPrice, exitBufferPrice, exitPrice, moonPrice, percents, dateCreated },
     initialTrackingPrice: snapShot?.LatestTrade?.Price || undefined,
     with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * Math.floor(1000 / enterPrice)).toFixed(2)),

@@ -55,7 +55,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     relevantHighs: [relevantPriceSchema],
     relevantLows: [relevantPriceSchema],
     priceAlerts: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "PriceAlert" }],
-
+    hasOptions: Boolean,
 
     dailyTickerValues: {
         atr: Number,
