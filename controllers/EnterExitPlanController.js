@@ -53,7 +53,6 @@ const initiateEnterExitPlan = asyncHandler(async (req, res) =>
     _id: foundChartableStock._id,
     tickerSymbol: foundChartableStock.tickerSymbol,
     sector: foundChartableStock.sector,
-    hasOptions: foundStock.HasOptions || false,
     plan: { enterPrice, enterBufferPrice, stopLossPrice, exitBufferPrice, exitPrice, moonPrice, percents, dateCreated },
     initialTrackingPrice: snapShot?.LatestTrade?.Price || undefined,
     with1000DollarsIdealGain: parseFloat(((exitPrice - enterPrice) * Math.floor(1000 / enterPrice)).toFixed(2)),

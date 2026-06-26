@@ -367,8 +367,13 @@ async function runCappedBatchOptionsPass()
     const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol')
 
     let tickerList = foundPlans.map(t => t.tickerSymbol)
-    const results = await Promise.all(tickerList.map(ticker => Stock.findOne({ Symbol: ticker, HasOptions: true })));
-    const fullWatchlistSymbols = results.filter(doc => doc !== null);
+    const fullWatchlistSymbols = await Stock.find({
+        nameSymbolField: { $in: tickerList },
+        HasOptions: true
+    });
+
+
+    results.filter(doc => doc !== null);
 
     console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
 
