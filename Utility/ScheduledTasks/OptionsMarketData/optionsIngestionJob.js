@@ -128,6 +128,13 @@ async function processAndSaveOptionsLandmarks(parsedJsonPayload)
 
         let maxCallOi = 0;
         let preCompiledCallWall = 0;
+        let totalPutOi = 0;
+        let totalCallOi = 0;
+        let atmContractIv = 0.45; // Default 45% fallback placeholder
+        const trailingClosePrice = plan.liveAuctionMetrics?.lastTradePrice || 277;
+
+
+
 
         // Loop over the contracts to locate your dominant institutional walls [INDEX]
         tickerContracts.forEach(contract =>
@@ -136,20 +143,30 @@ async function processAndSaveOptionsLandmarks(parsedJsonPayload)
             const openInterest = parseInt(contract.open_interest || 0, 10);
             const isPut = contract.type === 'put';
 
-            // Extract the Put Wall Floor [INDEX]
-            if (isPut && openInterest > maxPutOi)
+            // Accumulate total baseline open interest weight layers [INDEX]
+            if (isPut)
             {
-                maxPutOi = openInterest;
-                preCompiledPutWall = strike;
+                totalPutOi += openInterest;
+            } else
+            {
+                totalCallOi += openInterest;
             }
 
-            // Extract the Call Wall Ceiling [INDEX]
-            if (!isPut && openInterest > maxCallOi)
+
+            // Isolate the At-The-Money contract to capture the baseline Implied Volatility (IV)
+            if (Math.abs(strike - trailingClosePrice) <= 1.0 && contract.implied_volatility)
             {
-                maxCallOi = openInterest;
-                preCompiledCallWall = strike;
+                atmContractIv = parseFloat(contract.implied_volatility);
             }
         });
+        // Calculate your strict Weekly Expected Move Boundaries using your scalar formula [INDEX]
+        const weeklyMoveDollarCushion = trailingClosePrice * atmContractIv * Math.sqrt(7 / 365);
+        const lowerWeeklyBound = trailingClosePrice - weeklyMoveDollarCushion;
+        const upperWeeklyBound = trailingClosePrice + weeklyMoveDollarCushion;
+
+        const preCompiledPutCallRatio = totalCallOi > 0 ? (totalPutOi / totalCallOi) : 1.0;
+
+
 
         console.log(preCompiledCallWall, preCompiledPutWall)
         // 3. PUSH INTENT TO ATOMIC BULK BUFFER
@@ -160,10 +177,12 @@ async function processAndSaveOptionsLandmarks(parsedJsonPayload)
         //                 filter: { tickerSymbol: ticker },
         //                 update: {
         //                     $set: {
-        //                         "optionsExpectedMoves.weekly.putWall": preCompiledPutWall,
-        //                         "optionsExpectedMoves.weekly.callWall": preCompiledCallWall,
-        //                         "optionsExpectedMoves.weekly.lastReCalibratedTimestamp": new Date()
-        //                     }
+        // "optionsExpectedMoves.weekly.putWall": preCompiledPutWall,
+        // "optionsExpectedMoves.weekly.callWall": preCompiledCallWall,
+        // "optionsExpectedMoves.weekly.putCallRatio": parseFloat(preCompiledPutCallRatio.toFixed(2)),
+        // "optionsExpectedMoves.weekly.upperExpectedMoveBound": parseFloat(upperWeeklyBound.toFixed(2)),
+        // "optionsExpectedMoves.weekly.lowerExpectedMoveBound": parseFloat(lowerWeeklyBound.toFixed(2)),
+        // "optionsExpectedMoves.weekly.lastReCalibratedTimestamp": new Date()
         //                 }
         //             }
         //         });
