@@ -46,29 +46,34 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray)
                 {
                     const completeRawBody = Buffer.concat(dataBufferChunks).toString();
                     const parsedJsonPayload = JSON.parse(completeRawBody);
+                    const results = processAndSaveOptionsLandmarks(parsedJsonPayload)
 
-                    const rawContractsArray = parsedJsonPayload.option_contracts || [];
-                    console.log(rawContractsArray)
-
-                    // 2. Initialize a clean dictionary map to separate contracts by ticker
-                    const groupedContractsMap = {};
-                    watchlistSymbolsArray.forEach(symbol => { groupedContractsMap[symbol] = []; });
-
-                    // 3. SINGLE PASS CLASSIFICATION LOOP
-                    // Sort out the returning array contracts into their corresponding parent buckets
-                    rawContractsArray.forEach(contract =>
-                    {
-                        const rootTicker = contract.underlying_symbol;
-
-                        if (groupedContractsMap[rootTicker])
-                        {
-                            // Save only the strict contract symbol key code
-                            groupedContractsMap[rootTicker].push(contract.symbol);
-                        }
-                    });
 
                     console.log(`✨ Batch Options Ingestion Complete: Successfully mapped contracts across ${watchlistSymbolsArray.length} tickers.`);
-                    resolve(groupedContractsMap);
+                    resolve()
+
+                    // const rawContractsArray = parsedJsonPayload.option_contracts || [];
+                    // console.log(rawContractsArray)
+
+
+                    // // 2. Initialize a clean dictionary map to separate contracts by ticker
+                    // const groupedContractsMap = {};
+                    // watchlistSymbolsArray.forEach(symbol => { groupedContractsMap[symbol] = []; });
+
+                    // // 3. SINGLE PASS CLASSIFICATION LOOP
+                    // // Sort out the returning array contracts into their corresponding parent buckets
+                    // rawContractsArray.forEach(contract =>
+                    // {
+                    //     const rootTicker = contract.underlying_symbol;
+
+                    //     if (groupedContractsMap[rootTicker])
+                    //     {
+                    //         // Save only the strict contract symbol key code
+                    //         groupedContractsMap[rootTicker].push(contract.symbol);
+                    //     }
+                    // });
+
+                    // resolve(groupedContractsMap);
 
                 } catch (parseError)
                 {
@@ -85,5 +90,96 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray)
         networkRequest.end();
     });
 }
+
+
+/**
+ * Enterprise-Grade Consolidated Options Aggregator.
+ * Processes the entire weekly options matrix in a single REST trip by utilizing
+ * the open_interest data embedded straight inside the contract objects [INDEX].
+ * 
+ * @param {Object} parsedJsonPayload - The raw JSON body back from your batch contracts call
+ */
+async function processAndSaveOptionsLandmarks(parsedJsonPayload)
+{
+    const rawContractsArray = parsedJsonPayload.option_contracts || [];
+    if (rawContractsArray.length === 0) return;
+
+    // 1. Group the massive array of contracts by their parent underlying symbol
+    const contractsGroupedByTicker = {};
+    rawContractsArray.forEach(contract =>
+    {
+        const ticker = contract.underlying_symbol;
+        if (!contractsGroupedByTicker[ticker])
+        {
+            contractsGroupedByTicker[ticker] = [];
+        }
+        contractsGroupedByTicker[ticker].push(contract);
+    });
+
+    const bulkMongoOperations = [];
+
+    // 2. RUN INDEPENDENT VERTICAL AGGREGATION PASSES PER TICKER
+    Object.keys(contractsGroupedByTicker).forEach(ticker =>
+    {
+        const tickerContracts = contractsGroupedByTicker[ticker];
+
+        let maxPutOi = 0;
+        let preCompiledPutWall = 0;
+
+        let maxCallOi = 0;
+        let preCompiledCallWall = 0;
+
+        // Loop over the contracts to locate your dominant institutional walls [INDEX]
+        tickerContracts.forEach(contract =>
+        {
+            const strike = parseFloat(contract.strike_price);
+            const openInterest = parseInt(contract.open_interest || 0, 10);
+            const isPut = contract.type === 'put';
+
+            // Extract the Put Wall Floor [INDEX]
+            if (isPut && openInterest > maxPutOi)
+            {
+                maxPutOi = openInterest;
+                preCompiledPutWall = strike;
+            }
+
+            // Extract the Call Wall Ceiling [INDEX]
+            if (!isPut && openInterest > maxCallOi)
+            {
+                maxCallOi = openInterest;
+                preCompiledCallWall = strike;
+            }
+        });
+
+        console.log(preCompiledCallWall, preCompiledPutWall)
+        // 3. PUSH INTENT TO ATOMIC BULK BUFFER
+        //     if (preCompiledPutWall > 0 || preCompiledCallWall > 0)
+        //     {
+        //         bulkMongoOperations.push({
+        //             updateOne: {
+        //                 filter: { tickerSymbol: ticker },
+        //                 update: {
+        //                     $set: {
+        //                         "optionsExpectedMoves.weekly.putWall": preCompiledPutWall,
+        //                         "optionsExpectedMoves.weekly.callWall": preCompiledCallWall,
+        //                         "optionsExpectedMoves.weekly.lastReCalibratedTimestamp": new Date()
+        //                     }
+        //                 }
+        //             }
+        //         });
+        //     }
+        // });
+
+        // // 4. EXECUTE ATOMIC WRITE PASS
+        // if (bulkMongoOperations.length > 0)
+        // {
+        //     const bulkResult = await TradingPlanModel.bulkWrite(bulkMongoOperations);
+        //     console.log(`✨ Single-Pass Options Sync Complete: Hydrated ${bulkResult.modifiedCount} documents with institutional walls.`);
+        // }
+    })
+}
+
+
+
 
 module.exports = { fetchBatchWeeklyOptionsContracts }
