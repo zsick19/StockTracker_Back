@@ -49,10 +49,8 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
         else { fiveMinTickers.push(t.tickerSymbol) }
     })
 
-    foundMacroPlans.forEach((t) =>
-    {
-        allPlans.push(t.tickerSymbol)
-    })
+    foundMacroPlans.forEach((t) => { allPlans.push(t.tickerSymbol) })
+
 
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
@@ -65,24 +63,36 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
     {
         await retryOperation(async () =>
         {
-            const [snapShots, oneMinTradesData, oneMinData, fiveMinData, macroData] = await Promise.all([
-                alpaca.getSnapshots(allPlans),
-                alpaca.getMultiTradesV2(oneMinTickers, { start: startMin }),
-                alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: threeDayStart, end: yesterday }),
-                alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday }),
-                alpaca.getMultiBarsV2(macroAndSectorTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
-            ])
 
-
-
+            const snapShots = await alpaca.getSnapshots(allPlans)
+            let oneMinData
+            let oneMinTradesData
+            let fiveMinData
+            let jsonCompatible = {}
             const candleData = {}
             const macroCandleData = {}
-            for await (let singleStock of oneMinData) { candleData[singleStock[0]] = singleStock[1] }
-            for await (let singleStock of fiveMinData) { candleData[singleStock[0]] = singleStock[1] }
+
+            if (oneMinTickers.length > 0)
+            {
+                [oneMinTradesData, oneMinData] = await Promise.all([
+                    alpaca.getMultiTradesV2(oneMinTickers, { start: startMin }),
+                    alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: threeDayStart, end: yesterday }),
+                ])
+                for await (let singleStock of oneMinData) { candleData[singleStock[0]] = singleStock[1] }
+                jsonCompatible = Object.fromEntries(oneMinTradesData)
+            }
+
+            if (fiveMinTickers.length > 0)
+            {
+                fiveMinData = await alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
+                for await (let singleStock of fiveMinData)
+                {
+                    candleData[singleStock[0]] = singleStock[1]
+                }
+            }
+
+            const macroData = await alpaca.getMultiBarsV2(macroAndSectorTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
             for await (let singleStock of macroData) { macroCandleData[singleStock[0]] = singleStock[1] }
-
-            const jsonCompatible = Object.fromEntries(oneMinTradesData)
-
 
             let plansResults = foundUser.planAndTrackedStocks.map((t) =>
             {
@@ -119,6 +129,7 @@ const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
 
 
     tickersForHistoricalData.push(...macroAndSectorTickers)
+    if (tickersForHistoricalData.length === 0) return res.status(200)
     try
     {
         await retryOperation(async () =>
@@ -154,6 +165,7 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
     const tickersForHistoricalData = []
     foundUser.planAndTrackedStocks.forEach(t => { if (!t.maintainLiveCandles) tickersForHistoricalData.push(t.tickerSymbol) })
 
+    if (tickersForHistoricalData.length === 0) return res.status(200)
     try
     {
         await retryOperation(async () =>
@@ -183,6 +195,7 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     const oneMinTickers = []
     foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
     oneMinTickers.push(...macroAndSectorTickers)
+
     try
     {
         await retryOperation(async () =>
@@ -190,6 +203,7 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
             const tickerData = await alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
             const macroCandleData = {}
+
             for await (let singleStock of tickerData)
             {
                 if (macroAndSectorTickers.includes(singleStock[0])) macroCandleData[singleStock[0]] = singleStock[1]
@@ -216,6 +230,7 @@ const fetchTradeEngineData = asyncHandler(async (req, res) =>
     const oneMinTickers = []
     const startMin = subMinutes(new Date(), 2)
     foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
+    if (oneMinTickers.length === 0) return res.json({ tradeData: [] })
 
     try
     {

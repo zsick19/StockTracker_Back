@@ -132,8 +132,6 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         tenMinDownDay: [Number]
     },
 
-
-
     cascadePattern: {
         points: { type: [pointsSchema], default: undefined },
         projection: {
@@ -191,6 +189,17 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     volumeProfileMetrics: {
         overHeadResistance: [supportResistanceSchema],
         underlyingSupport: [supportResistanceSchema]
+    },
+
+    optionsExpectedMoves: {
+        weekly: {
+            putWall: Number,
+            callWall: Number,
+            putCallRatio: Number,
+            upperExpectedMoveBound: Number,
+            lowerExpectedMoveBound: Number,
+            lastReCalibratedTimestamp: Date
+        }
     },
 
     patternClassification: String,

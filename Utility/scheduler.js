@@ -360,40 +360,25 @@ async function updateDailyValuesPostClose()
  * Safely throttles your entire active watchlist using 20-stock chunks to fully
  * prevent data truncation, rate limiting, and memory overload.
  */
-async function runCappedBatchOptionsPass()
+async function updateOptionsContractInformation()
 {
 
     const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol patternClassification')
     let tickerList = foundPlans.filter(t => t.patternClassification !== undefined).map(t => t.tickerSymbol)
-    console.log(tickerList)
     const fullWatchlistSymbols = await Stock.find({ nameSymbolField: { $in: tickerList }, HasOptions: true });
-    // fullWatchlistSymbols.filter(doc => doc !== null);
+    if (fullWatchlistSymbols.length === 0) return console.log(`No current plans need options update....`)
+
 
     console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
-
-    let sampleArray = ['AAPL', 'SPY']
-    // Split your full 60-ticker watchlist into clean, managed batches of 20
-    const targetedBatches = chunkArray(sampleArray, 20);
-    let masterUnifiedContractsDictionary = {};
+    const targetedBatches = chunkArray(fullWatchlistSymbols, 20);
 
     for (const activeBatch of targetedBatches)
     {
         try
         {
             console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${activeBatch.join(', ')}]`);
-
-            // Invoke your existing batch request HTTPS utility script
-            // Each call stays well under the 10,000 options contract page response cap!
-            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(activeBatch);
-
-            // Merge the sub-batch dictionary directly into your master results layer
-            masterUnifiedContractsDictionary = {
-                ...masterUnifiedContractsDictionary,
-                ...batchContractsResult
-            };
-
-            // Introduce a brief 500ms network cooldown pause to completely protect your server 
-            // from hitting Alpaca rate limits or throttling gates
+            const snapShots = await alpaca.getSnapshots(activeBatch)
+            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(activeBatch, snapShots);
             await new Promise(resolve => setTimeout(resolve, 500));
 
         } catch (subBatchError)
@@ -401,9 +386,6 @@ async function runCappedBatchOptionsPass()
             console.error(`❌ Ingestion Failure inside active batch:`, subBatchError);
         }
     }
-    console.log(masterUnifiedContractsDictionary)
-    // Return your pristine, completely populated multi-asset data dictionary map
-    return masterUnifiedContractsDictionary;
 }
 
 
@@ -419,12 +401,11 @@ async function runCappedBatchOptionsPass()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    //updateOptionsContractInformation()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
-        
-    //    cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
-    //    cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
+
+    cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
+    cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
