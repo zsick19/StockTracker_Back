@@ -12,6 +12,7 @@ const { getDay, addDays, nextFriday, format, differenceInCalendarDays, parseISO 
  */
 function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray, snapShots)
 {
+    console.log(watchlistSymbolsArray)
     return new Promise((resolve, reject) =>
     {
         if (!watchlistSymbolsArray || watchlistSymbolsArray.length === 0) { return resolve({}); }
@@ -21,7 +22,7 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray, snapShots)
         const unifiedTickerQueryString = watchlistSymbolsArray.join(',');
 
         const fiveWeeksOutDateString = format(addDays(new Date(), 35), 'yyyy-MM-dd');
-
+        const today = new Date()
         const requestConfig = {
             method: 'GET',
             hostname: 'api.alpaca.markets', // Production Options Data Gateway
@@ -153,8 +154,8 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray, snapShots)
                         // Calculate your strict Weekly Expected Move Boundaries using your scalar formula [INDEX]
 
                         const weeklyMoveDollarCushion = trailingClosePrice * atmContractIv * Math.sqrt(7 / 365);
-                        const lowerBound = trailingClosePrice - weeklyMoveDollarCushion;
-                        const upperBound = trailingClosePrice + weeklyMoveDollarCushion;
+                        const lowerBound = parseFloat((trailingClosePrice - weeklyMoveDollarCushion).toFixed(2))
+                        const upperBound = parseFloat((trailingClosePrice + weeklyMoveDollarCushion).toFixed(2))
 
 
                         if (isExpirationImminentWindow)
@@ -178,13 +179,14 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray, snapShots)
 
                         if (preCompiledPutWallStrike > 0 || preCompiledCallWallStrike > 0)
                         {
-                            console.log(optionsDataBlock)
                             bulkMongoOperations.push({
                                 updateOne: {
                                     filter: { tickerSymbol: ticker },
                                     update: {
-                                        $set: { "optionsExpectedMoves": optionsDataBlock }
-
+                                        $set: {
+                                            "optionsExpectedMoves": optionsDataBlock,
+                                            "dateOptionsEMLastCalculated": today
+                                        }
                                     }
                                 }
                             });
@@ -194,7 +196,6 @@ function fetchBatchWeeklyOptionsContracts(watchlistSymbolsArray, snapShots)
                     // 4. EXECUTE ATOMIC WRITE PASS
                     if (bulkMongoOperations.length > 0) bulkWriteOptionsData(bulkMongoOperations)
                     resolve()
-
                 }
                 catch (parseError)
                 {

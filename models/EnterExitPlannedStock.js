@@ -160,6 +160,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
             lastReCalibratedTimestamp: Date
         }
     },
+    dateOptionsEMLastCalculated: Date,
     dateMorningMetricsLastCalculated: Date,
     dateVolumeProfileLastCalculated: Date,
 

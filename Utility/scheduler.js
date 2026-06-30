@@ -365,7 +365,7 @@ async function updateOptionsContractInformation()
 
     const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol patternClassification')
     let tickerList = foundPlans.filter(t => t.patternClassification !== undefined).map(t => t.tickerSymbol)
-    const fullWatchlistSymbols = await Stock.find({ nameSymbolField: { $in: tickerList }, HasOptions: true });
+    const fullWatchlistSymbols = await Stock.find({ Symbol: { $in: tickerList }, HasOptions: true });
     if (fullWatchlistSymbols.length === 0) return console.log(`No current plans need options update....`)
 
 
@@ -376,9 +376,10 @@ async function updateOptionsContractInformation()
     {
         try
         {
-            console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${activeBatch.join(', ')}]`);
-            const snapShots = await alpaca.getSnapshots(activeBatch)
-            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(activeBatch, snapShots);
+            const tickerActiveBatch = activeBatch.map((t) => t.Symbol)
+            console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${tickerActiveBatch.join(', ')}]`);
+            const snapShots = await alpaca.getSnapshots(tickerActiveBatch)
+            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(tickerActiveBatch, snapShots);
             await new Promise(resolve => setTimeout(resolve, 500));
 
         } catch (subBatchError)
