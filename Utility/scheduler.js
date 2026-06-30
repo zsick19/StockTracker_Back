@@ -449,7 +449,69 @@ async function updateChannelAbsorbWindow()
     }
 }
 
+async function updateRetailVsIntistutional()
+{
+    const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
+    if (foundPlans.length === 0) return
+    console.log(`Initializing Channel Absorption Window Calculation`)
 
+    const targetedBatches = chunkArray(foundPlans, 20)
+    const today = new Date()
+    today.setHours(9, 30, 0, 0)
+    for (const activeBatch of targetedBatches)
+    {
+        try
+        {
+            let tickerList = activeBatch.map(t => t.tickerSymbol)
+            const candleData = await alpaca.getMultiTradesV2(tickerList, { start: today })
+            console.log(candleData)
+
+            const jsonCompatible = Object.fromEntries(candleData)
+            const bulkOperations = []
+            for (const stock of activeBatch)
+            {
+                const oneMinCandleData = candleData.get(stock.tickerSymbol)
+                console.log(jsonCompatible[stock.tickerSymbol].length)
+                console.log(oneMinCandleData)
+                // if (oneMinCandleData && oneMinCandleData.length > 0)
+                // {
+                //     const batchAbsorbWindowResults = compileChannelHistoricalAbsorptionWindow(oneMinCandleData, stock)
+                //     console.log(stock.tickerSymbol)
+                //     console.log(batchAbsorbWindowResults)
+
+                //     //Construct efficient upsert bulk actions
+                //     bulkOperations.push({
+                //         updateOne: {
+                //             filter: { tickerSymbol: stock.tickerSymbol },
+                //             update: {
+                //                 $set: {
+                //                     absorptionWindowMetrics: batchAbsorbWindowResults,
+                //                     dateAbsorptionWindowLastCalculated: new Date()
+                //                 }
+                //             }
+                //         }
+                //     });
+                // }
+            }
+
+            // Execute all 50 database modifications in one network payload
+            if (bulkOperations.length > 0)
+            {
+                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
+                console.log(`Successfully updated database for batch of channel absorption window. Modified: ${result.modifiedCount}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+
+
+        catch (e)
+        {
+            console.log(e)
+        }
+    }
+}
 
 
 
@@ -460,7 +522,7 @@ async function updateChannelAbsorbWindow()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-
+    updateRetailVsIntistutional()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
 
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })

@@ -171,7 +171,12 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     },
     dateAbsorptionWindowLastCalculated: Date,
 
-
+    retailVsInstitutionMetrics: {
+        inZOneBlockVolumeRatio: Number,      // Block footprint inside your buy box [INDEX]
+        inZoneParticipantRegime: String,     // "INSTITUTIONAL_SPONSORSHIP" vs "UN_TESTED_FLOOR"
+        outOfZoneBlockVolumeRatio: Number,      // Block footprint outside your buy box [INDEX]
+        outOfZoneParticipantRegime: String      // "HOLLOW_RETAIL_DRIFT_CONFIRMED" vs "INSTITUTIONAL_DISTRIBUTION"
+    },
 
 
     cascadePattern: {
