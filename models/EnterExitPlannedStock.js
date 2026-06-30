@@ -132,6 +132,41 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         tenMinDownDay: [Number]
     },
 
+    volumeProfileMetrics: {
+        overHeadResistance: [supportResistanceSchema],
+        underlyingSupport: [supportResistanceSchema]
+    },
+
+    optionsExpectedMoves: {
+        weekly: {
+            putWall: Number,
+            callWall: Number,
+            putCallRatio: Number,
+            upperExpectedBounds: Number,
+            lowerExpectedBounds: Number,
+        },
+        monthly: {
+            putWall: Number,
+            callWall: Number,
+            putCallRatio: Number,
+            upperExpectedBounds: Number,
+            lowerExpectedBounds: Number
+        },
+        // CENTRAL TIME-DECAY CONTROL POINTERS
+        metadata: {
+            targetExpirationDate: String,      // Format: "2026-07-17"
+            daysRemainingToExpiration: Number, // Computed integer difference
+            isExpirationImminent: Boolean,      // True strictly when daysRemaining <= 5
+            lastReCalibratedTimestamp: Date
+        }
+    },
+    dateMorningMetricsLastCalculated: Date,
+    dateVolumeProfileLastCalculated: Date,
+
+
+
+
+
     cascadePattern: {
         points: { type: [pointsSchema], default: undefined },
         projection: {
@@ -185,27 +220,9 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
             }
         }
     },
-
-    volumeProfileMetrics: {
-        overHeadResistance: [supportResistanceSchema],
-        underlyingSupport: [supportResistanceSchema]
-    },
-
-    optionsExpectedMoves: {
-        weekly: {
-            putWall: Number,
-            callWall: Number,
-            putCallRatio: Number,
-            upperExpectedMoveBound: Number,
-            lowerExpectedMoveBound: Number,
-            lastReCalibratedTimestamp: Date
-        }
-    },
-
     patternClassification: String,
     datePatternLastCalculated: Date,
-    dateMorningMetricsLastCalculated: Date,
-    dateVolumeProfileLastCalculated: Date,
+
     dateAdded: { type: Date, default: new Date() },
     chartedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
