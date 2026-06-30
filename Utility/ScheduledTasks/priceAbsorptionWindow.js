@@ -12,14 +12,16 @@ import { parseISO } from 'date-fns';
 export function compileChannelHistoricalAbsorptionWindow(incoming1MinBars, planEntity)
 {
     const channelConfig = planEntity.channelPattern || {};
-    const supportFloor = channelConfig.channelBottom || 0;
     const entryBufferCeiling = channelConfig.entryStrikeBuffer || 0;
+    const supportFloor = channelConfig.channelBottom || 0;
 
     // Hard fallback layout schema if data loops fail or anchors aren't initialized [INDEX]
     const defaultStrategyFallback = {
         averageMinutesInStrikeZone: 15.0, // Stable large-cap default placeholder pool [INDEX]
         maxConsecutiveMinutesInZone: 12,
-        executionVelocityRating: "STABLE_ACCUMULATION"
+        executionVelocityRating: "STABLE_ACCUMULATION",
+        entryBufferCeiling, supportFloor
+
     };
 
     if (supportFloor === 0 || entryBufferCeiling === 0) return defaultStrategyFallback;
@@ -118,6 +120,7 @@ export function compileChannelHistoricalAbsorptionWindow(incoming1MinBars, planE
     return {
         averageMinutesInStrikeZone: parseFloat(averageMinutesPerVisit.toFixed(1)),
         maxConsecutiveMinutesInZone: maxConsecutiveMinutesInsideZone,
-        executionVelocityRating: averageMinutesPerVisit <= 3.0 ? "HYPER_VELOCITY_SPRING" : "STABLE_ACCUMULATION"
+        executionVelocityRating: averageMinutesPerVisit <= 3.0 ? "HYPER_VELOCITY_SPRING" : "STABLE_ACCUMULATION",
+        entryBufferCeiling, supportFloor
     };
 }

@@ -165,7 +165,7 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
     const tickersForHistoricalData = []
     foundUser.planAndTrackedStocks.forEach(t => { if (!t.maintainLiveCandles) tickersForHistoricalData.push(t.tickerSymbol) })
 
-    if (tickersForHistoricalData.length === 0) return res.status(200)
+    if (tickersForHistoricalData.length === 0) return res.json([])
     try
     {
         await retryOperation(async () =>
@@ -173,6 +173,7 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
             const tickerData = await alpaca.getMultiBarsV2(tickersForHistoricalData, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
             for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
+            console.log(candleData)
             res.json({ planData: candleData });
         })
     } catch (error)
@@ -188,8 +189,8 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-
-    const todayStart = new Date()
+  
+        const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
     const oneMinTickers = []

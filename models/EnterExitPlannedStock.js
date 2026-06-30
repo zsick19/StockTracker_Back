@@ -164,6 +164,12 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     dateMorningMetricsLastCalculated: Date,
     dateVolumeProfileLastCalculated: Date,
 
+    absorptionWindowMetrics: {
+        averageMinutesInStrikeZone: Number,
+        maxConsecutiveMinutesInZone: Number,
+        executionVelocityRating: String
+    },
+    dateAbsorptionWindowLastCalculated: Date,
 
 
 

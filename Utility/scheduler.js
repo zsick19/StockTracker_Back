@@ -390,7 +390,7 @@ async function updateOptionsContractInformation()
     }
 }
 
-async function updateChannelAbsorpWindow()
+async function updateChannelAbsorbWindow()
 {
     const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
     if (foundPlans.length === 0) return
@@ -403,6 +403,8 @@ async function updateChannelAbsorpWindow()
         {
             let tickerList = activeBatch.map(t => t.tickerSymbol)
             const candleData = await alpaca.getMultiBarsV2(tickerList, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: subBusinessDays(new Date(), 6), })
+
+            const bulkOperations = []
             for (const stock of activeBatch)
             {
                 const oneMinCandleData = candleData.get(stock.tickerSymbol)
@@ -410,10 +412,37 @@ async function updateChannelAbsorpWindow()
                 if (oneMinCandleData && oneMinCandleData.length > 0)
                 {
                     const batchAbsorbWindowResults = compileChannelHistoricalAbsorptionWindow(oneMinCandleData, stock)
+                    console.log(stock.tickerSymbol)
                     console.log(batchAbsorbWindowResults)
+
+                    //Construct efficient upsert bulk actions
+                    bulkOperations.push({
+                        updateOne: {
+                            filter: { tickerSymbol: stock.tickerSymbol },
+                            update: {
+                                $set: {
+                                    absorptionWindowMetrics: batchAbsorbWindowResults,
+                                    dateAbsorptionWindowLastCalculated: new Date()
+                                }
+                            }
+                        }
+                    });
                 }
             }
-        } catch (e)
+
+            // Execute all 50 database modifications in one network payload
+            if (bulkOperations.length > 0)
+            {
+                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
+                console.log(`Successfully updated database for batch of channel absorption window. Modified: ${result.modifiedCount}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+
+
+        catch (e)
         {
             console.log(e)
         }
@@ -431,13 +460,15 @@ async function updateChannelAbsorpWindow()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateChannelAbsorpWindow()
+
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
+
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
 
     cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
     cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
+    cron.schedule('0 16 * * *', () => { if (!isWeekend(new Date())) updateChannelAbsorbWindow() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
 }
