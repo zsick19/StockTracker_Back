@@ -27,7 +27,8 @@ const { calculateHighLowTimeDistribution } = require('./technicalCalculations/In
 const { calculateNightlyDailyVolumePoc } = require('./technicalCalculations/DailyPatternGenerators/patternPOC');
 const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVolumeProfile');
 
-const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMarketData/optionsIngestionJob')
+const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMarketData/optionsIngestionJob');
+const { compileChannelHistoricalAbsorptionWindow } = require('./ScheduledTasks/priceAbsorptionWindow');
 
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -389,7 +390,35 @@ async function updateOptionsContractInformation()
     }
 }
 
+async function updateChannelAbsorpWindow()
+{
+    const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
+    if (foundPlans.length === 0) return
+    console.log(`Initializing Channel Absorption Window Calculation`)
 
+    const targetedBatches = chunkArray(foundPlans, 20)
+    for (const activeBatch of targetedBatches)
+    {
+        try
+        {
+            let tickerList = activeBatch.map(t => t.tickerSymbol)
+            const candleData = await alpaca.getMultiBarsV2(tickerList, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: subBusinessDays(new Date(), 6), })
+            for (const stock of activeBatch)
+            {
+                const oneMinCandleData = candleData.get(stock.tickerSymbol)
+
+                if (oneMinCandleData && oneMinCandleData.length > 0)
+                {
+                    const batchAbsorbWindowResults = compileChannelHistoricalAbsorptionWindow(oneMinCandleData, stock)
+                    console.log(batchAbsorbWindowResults)
+                }
+            }
+        } catch (e)
+        {
+            console.log(e)
+        }
+    }
+}
 
 
 
@@ -402,6 +431,7 @@ async function updateOptionsContractInformation()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
+    updateChannelAbsorpWindow()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
 
