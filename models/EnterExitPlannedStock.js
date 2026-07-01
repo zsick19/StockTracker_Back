@@ -63,6 +63,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         ema50: Number,
         ema200: Number,
         spyBetaValue: Number,
+        baselineAvgOneMinVolume: Number,
         PrevDailyBar: {
             ClosePrice: Number,
             HighPrice: Number,
@@ -178,7 +179,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         outOfZoneLargeVsSmallRatio: Number,
         outOfZoneParticipantRegime: String
     },
-    dateRvILastCalculated:Date,
+    dateRvILastCalculated: Date,
 
     cascadePattern: {
         points: { type: [pointsSchema], default: undefined },
