@@ -30,6 +30,7 @@ const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVol
 const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMarketData/optionsIngestionJob');
 const { compileChannelHistoricalAbsorptionWindow } = require('./ScheduledTasks/priceAbsorptionWindow');
 const { compileDualZoneAccumulationMetrics } = require('./ScheduledTasks/retailVsInstitution');
+const { calculateThreeDayOneMinVolumeBaseline } = require('./ScheduledTasks/threeDayOneMinAverage');
 
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -464,18 +465,34 @@ async function updateRetailVsIntistutional()
         try
         {
             let tickerList = activeBatch.map(t => t.tickerSymbol)
-            const candleData = await alpaca.getMultiTradesV2(tickerList, { start: today })
+
+            const [tradeData, candleData] = await Promise.all([
+
+                await alpaca.getMultiTradesV2(tickerList, { start: today }),
+                await alpaca.getMultiBarsV2(tickerList, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: subBusinessDays(new Date(), 3), })
+            ])
+
+
+
+
+
+
+
+
+
 
             const bulkOperations = []
             for (const stock of activeBatch)
             {
-                const oneMinCandleData = candleData.get(stock.tickerSymbol)
+                const tradeData = tradeData.get(stock.tickerSymbol)
+                const candleData = candleData.get(stock.tickerSymbol)
 
-
-                if (oneMinCandleData && oneMinCandleData.length > 0)
+                if (tradeData && tradeData.length > 0)
                 {
-                    const batchAbsorbWindowResults = compileDualZoneAccumulationMetrics(oneMinCandleData, stock)
-
+                    const averageThreeDay = calculateThreeDayOneMinVolumeBaseline(candleData)
+                    console.log(averageThreeDay)
+                    const batchAbsorbWindowResults = compileDualZoneAccumulationMetrics(tradeData, stock)
+                    console.log(batchAbsorbWindowResults)
 
                     //     //Construct efficient upsert bulk actions
                     bulkOperations.push({
