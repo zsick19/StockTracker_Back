@@ -7,7 +7,7 @@
  * @param {Object} channelConfig - Pre-save manual pricing markers { channelBottom, entryStrikeBuffer }
  * @returns {Object} Pristine, data-driven analytics package ready to hydrate MongoDB [INDEX]
  */
-export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelConfig, historicalOneMinBaseAvg)
+function compileDualZoneAccumulationMetrics(historicalRawTrades, channelConfig, historicalOneMinBaseAvg)
 {
     const supportFloor = channelConfig.channelPattern.channelBottom || 0;
     const entryBufferCeiling = channelConfig.channelPattern.entryStrikeBuffer || 0;
@@ -84,6 +84,7 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
     };
 }
 
+module.exports = { compileDualZoneAccumulationMetrics }
 
 // /**
 //  * PRODUCTION COMPILER: compileDualZoneDynamicAccumulationMetrics
