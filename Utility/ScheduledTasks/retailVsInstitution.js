@@ -9,8 +9,8 @@
  */
 export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelConfig)
 {
-    const supportFloor = channelConfig.channelBottom || 0;
-    const entryBufferCeiling = channelConfig.entryStrikeBuffer || 0;
+    const supportFloor = channelConfig.channelPattern.channelBottom || 0;
+    const entryBufferCeiling = channelConfig.channelPattern.entryStrikeBuffer || 0;
 
     // Inside-Zone Accumulators (The Execution Target Box) [INDEX]
     let totalVolumeInsideZone = 0;
@@ -22,18 +22,15 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
     let institutionalBlockVolumeDriftZone = 0;
     let totalTradesCountDriftZone = 0;
 
-    if (!historicalRawTrades || historicalRawTrades.length === 0 || supportFloor === 0)
-    {
-        return { error: "Awaiting valid structural trade logs and manual price anchors." };
-    }
+    if (!historicalRawTrades || historicalRawTrades.length === 0 || supportFloor === 0) { return { error: "Awaiting valid structural trade logs and manual price anchors." }; }
 
     // =========================================================================
     // 📊 DOUBLE-SIDED TAPE EVALUATION RUN LOOP
     // =========================================================================
     historicalRawTrades.forEach(trade =>
     {
-        const tradePrice = trade.p || trade.price;
-        const tradeSize = trade.s || trade.size || 0;
+        const tradePrice = trade.Price || trade.p || trade.price;
+        const tradeSize = trade.Size || trade.s || trade.size || 0;
 
         if (tradeSize === 0) return;
 
@@ -44,10 +41,7 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
             totalVolumeInsideZone += tradeSize;
 
             // Flag institutional blocks via 2,000+ share print sizes [INDEX]
-            if (tradeSize >= 2000)
-            {
-                institutionalBlockVolumeInsideZone += tradeSize;
-            }
+            if (tradeSize >= 2000) { institutionalBlockVolumeInsideZone += tradeSize; }
         }
         // Channel B: Outside the box / Floating inside the upper drift corridor [INDEX]
         else if (tradePrice > entryBufferCeiling)
@@ -55,10 +49,7 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
             totalTradesCountDriftZone++;
             totalVolumeDriftZone += tradeSize;
 
-            if (tradeSize >= 2000)
-            {
-                institutionalBlockVolumeDriftZone += tradeSize;
-            }
+            if (tradeSize >= 2000) { institutionalBlockVolumeDriftZone += tradeSize; }
         }
     });
 
@@ -78,17 +69,10 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
     const driftRegime = driftBlockRatio <= 25.0 ? "HOLLOW_RETAIL_DRIFT_CONFIRMED" : "INSTITUTIONAL_DISTRIBUTION_DRIVE";
 
     return {
-        // INSIDE THE BOX STATS
-        floorBlockVolumeRatio: floorBlockRatio,
-        totalInsideZoneTrades: totalTradesCountInsideZone,
-        floorParticipantRegime: floorRegime,
-
-        // OUTSIDE THE BOX STATS (THE DRIFT VELOCITY) [INDEX]
-        driftBlockVolumeRatio: driftBlockRatio,
-        totalDriftZoneTrades: totalTradesCountDriftZone,
-        driftParticipantRegime: driftRegime,
-
-        // Central verification metadata
-        lastTapeAnalysisDate: new Date()
+        inZoneTradeCount: totalTradesCountInsideZone,
+        inZoneLargeVsSmallRatio: floorBlockRatio,
+        inZoneParticipantRegime: floorRegime,
+        outOfZoneLargeVsSmallRatio: driftBlockRatio,
+        outOfZoneParticipantRegime: driftRegime,
     };
 }

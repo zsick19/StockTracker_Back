@@ -29,6 +29,7 @@ const { executeNightlyVolumeProfilePass } = require('./ScheduledTasks/nightlyVol
 
 const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMarketData/optionsIngestionJob');
 const { compileChannelHistoricalAbsorptionWindow } = require('./ScheduledTasks/priceAbsorptionWindow');
+const { compileDualZoneAccumulationMetrics } = require('./ScheduledTasks/retailVsInstitution');
 
 
 // const TradeRecord = require("../models/TradeRecord");
@@ -453,7 +454,7 @@ async function updateRetailVsIntistutional()
 {
     const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
     if (foundPlans.length === 0) return
-    console.log(`Initializing Channel Absorption Window Calculation`)
+    console.log(`Initializing Retail Vs Institutional trade calculation`)
 
     const targetedBatches = chunkArray(foundPlans, 20)
     const today = new Date()
@@ -464,41 +465,38 @@ async function updateRetailVsIntistutional()
         {
             let tickerList = activeBatch.map(t => t.tickerSymbol)
             const candleData = await alpaca.getMultiTradesV2(tickerList, { start: today })
-            console.log(candleData)
 
-            const jsonCompatible = Object.fromEntries(candleData)
             const bulkOperations = []
             for (const stock of activeBatch)
             {
                 const oneMinCandleData = candleData.get(stock.tickerSymbol)
-                console.log(jsonCompatible[stock.tickerSymbol].length)
-                console.log(oneMinCandleData)
-                // if (oneMinCandleData && oneMinCandleData.length > 0)
-                // {
-                //     const batchAbsorbWindowResults = compileChannelHistoricalAbsorptionWindow(oneMinCandleData, stock)
-                //     console.log(stock.tickerSymbol)
-                //     console.log(batchAbsorbWindowResults)
 
-                //     //Construct efficient upsert bulk actions
-                //     bulkOperations.push({
-                //         updateOne: {
-                //             filter: { tickerSymbol: stock.tickerSymbol },
-                //             update: {
-                //                 $set: {
-                //                     absorptionWindowMetrics: batchAbsorbWindowResults,
-                //                     dateAbsorptionWindowLastCalculated: new Date()
-                //                 }
-                //             }
-                //         }
-                //     });
-                // }
+
+                if (oneMinCandleData && oneMinCandleData.length > 0)
+                {
+                    const batchAbsorbWindowResults = compileDualZoneAccumulationMetrics(oneMinCandleData, stock)
+
+
+                    //     //Construct efficient upsert bulk actions
+                    bulkOperations.push({
+                        updateOne: {
+                            filter: { tickerSymbol: stock.tickerSymbol },
+                            update: {
+                                $set: {
+                                    retailVsInstitutionMetrics: batchAbsorbWindowResults,
+                                    dateRvILastCalculated: new Date()
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
             // Execute all 50 database modifications in one network payload
             if (bulkOperations.length > 0)
             {
                 const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
-                console.log(`Successfully updated database for batch of channel absorption window. Modified: ${result.modifiedCount}`);
+                console.log(`Successfully updated database for batch of retail vs institutional. Modified: ${result.modifiedCount}`);
             }
 
             await new Promise(resolve => setTimeout(resolve, 3000));
