@@ -75,7 +75,7 @@ export function compileDualZoneAccumulationMetrics(historicalRawTrades, channelC
     const driftRegime = driftBlockRatio <= 25.0 ? "HOLLOW_RETAIL_DRIFT_CONFIRMED" : "INSTITUTIONAL_DISTRIBUTION_DRIVE";
 
     return {
-        dynamicBlockThreshold,
+        tradeSizeConsideredLarge: dynamicBlockThreshold,
         inZoneTradeCount: totalTradesCountInsideZone,
         inZoneLargeVsSmallRatio: floorBlockRatio,
         inZoneParticipantRegime: floorRegime,

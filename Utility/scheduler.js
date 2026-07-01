@@ -451,7 +451,7 @@ async function updateChannelAbsorbWindow()
     }
 }
 
-async function updateRetailVsIntistutional()
+async function updateRetailVsInstitutional()
 {
     const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
     if (foundPlans.length === 0) return
@@ -466,7 +466,7 @@ async function updateRetailVsIntistutional()
         {
             let tickerList = activeBatch.map(t => t.tickerSymbol)
 
-            const [tradeData, candleData] = await Promise.all([
+            const [rawTradeData, rawCandleData] = await Promise.all([
 
                 await alpaca.getMultiTradesV2(tickerList, { start: today }),
                 await alpaca.getMultiBarsV2(tickerList, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: subBusinessDays(new Date(), 3), })
@@ -484,15 +484,13 @@ async function updateRetailVsIntistutional()
             const bulkOperations = []
             for (const stock of activeBatch)
             {
-                const tradeData = tradeData.get(stock.tickerSymbol)
-                const candleData = candleData.get(stock.tickerSymbol)
+                const tradeData = rawTradeData.get(stock.tickerSymbol)
+                const candleData = rawCandleData.get(stock.tickerSymbol)
 
                 if (tradeData && tradeData.length > 0)
                 {
                     const averageThreeDay = calculateThreeDayOneMinVolumeBaseline(candleData)
-                    console.log(averageThreeDay)
-                    const batchAbsorbWindowResults = compileDualZoneAccumulationMetrics(tradeData, stock)
-                    console.log(batchAbsorbWindowResults)
+                    const batchAbsorbWindowResults = compileDualZoneAccumulationMetrics(tradeData, stock, averageThreeDay)
 
                     //     //Construct efficient upsert bulk actions
                     bulkOperations.push({
@@ -537,15 +535,17 @@ async function updateRetailVsIntistutional()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
-    updateRetailVsIntistutional()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
 
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
 
+
     cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
     cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
+
     cron.schedule('0 16 * * *', () => { if (!isWeekend(new Date())) updateChannelAbsorbWindow() })
+    cron.schedule('10 16 * * *', () => { if (!isWeekend(new Date())) updateRetailVsInstitutional() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
     cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
 }

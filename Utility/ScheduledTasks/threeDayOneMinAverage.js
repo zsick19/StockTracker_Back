@@ -6,7 +6,7 @@
  * @param {Array} historical1MinCandles - Raw historical 1-minute bars array from your background prefetch
  * @returns {number} Integer representing the mean regular-trading-hours 1-minute volume footprint
  */
-export function calculateThreeDayOneMinVolumeBaseline(historical1MinCandles)
+function calculateThreeDayOneMinVolumeBaseline(historical1MinCandles)
 {
     // Default safe fallback placeholder (10,000 shares/min) if data array lacks properties
     const defaultVolumeFallback = 10000;
