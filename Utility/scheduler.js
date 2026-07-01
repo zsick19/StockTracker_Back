@@ -33,16 +33,11 @@ const { compileDualZoneAccumulationMetrics } = require('./ScheduledTasks/retailV
 const { calculateThreeDayOneMinVolumeBaseline } = require('./ScheduledTasks/threeDayOneMinAverage');
 
 
-// const TradeRecord = require("../models/TradeRecord");
 
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
-/**
- * Production Watchlist Chunker.
- * Splits an array of any size into smaller, controlled operational batches.
- */
 
 function chunkArray(array, size)
 {
@@ -356,13 +351,6 @@ async function updateDailyValuesPostClose()
     }
 }
 
-
-
-/**
- * Master Scheduled Options Pipeline Orchestrator.
- * Safely throttles your entire active watchlist using 20-stock chunks to fully
- * prevent data truncation, rate limiting, and memory overload.
- */
 async function updateOptionsContractInformation()
 {
 
@@ -498,6 +486,7 @@ async function updateRetailVsInstitutional()
                             filter: { tickerSymbol: stock.tickerSymbol },
                             update: {
                                 $set: {
+                                    "dailyTickerValues.baselineAvgOneMinVolume": averageThreeDay,
                                     retailVsInstitutionMetrics: batchAbsorbWindowResults,
                                     dateRvILastCalculated: new Date()
                                 }
@@ -535,6 +524,9 @@ async function updateRetailVsInstitutional()
 function initScheduler()
 {
     console.log('Scheduler is initialized')
+
+
+
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
 
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
