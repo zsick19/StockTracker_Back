@@ -32,6 +32,7 @@ const stockSchema = new mongoose.Schema({
     DaysGapPercent: Number,
     PositionInRangePercent: Number,
     ShortPercentOfShares: Number,
+    Website: String,
     LastUpdated: Date
 })
 

@@ -105,7 +105,7 @@ function calculateExtendedSessionProbabilities(candles)
     if (totalDays === 0) return { totalDaysAnalyzed: 0, stats: null };
 
     // Helper utility to convert raw numbers safely into rounded percentages
-    const toPercent = (count) => parseFloat(((count / totalDays) * 100).toFixed(2));
+    const toPercent = (count) => parseFloat(((count / totalDays) * 100).toFixed());
 
     return {
         openH: toPercent(morningHighs),

@@ -6,7 +6,7 @@ const User = require('../models/User');
 const Alpaca = require('@alpacahq/alpaca-trade-api');
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
-const { isBefore, addBusinessDays, subDays, isWeekend, subBusinessDays } = require('date-fns');
+const { isBefore, addBusinessDays, subDays, isWeekend, subBusinessDays, previousThursday, previousMonday, previousTuesday, previousWednesday, previousFriday } = require('date-fns');
 const { sectorToTicker } = require('./sectorAndTicker');
 const { retryOperation } = require('./sharedUtility');
 
@@ -31,6 +31,9 @@ const { fetchBatchWeeklyOptionsContracts } = require('./ScheduledTasks/OptionsMa
 const { compileChannelHistoricalAbsorptionWindow } = require('./ScheduledTasks/priceAbsorptionWindow');
 const { compileDualZoneAccumulationMetrics } = require('./ScheduledTasks/retailVsInstitution');
 const { calculateThreeDayOneMinVolumeBaseline } = require('./ScheduledTasks/threeDayOneMinAverage');
+const { calculateIntraDayVolumeDistribution } = require('./technicalCalculations/IntraDayMetrics/volumeDistribution');
+const { reviewOpeningMinuteTape } = require('./technicalCalculations/IntraDayMetrics/openingMinuteTradeReview');
+const { processMultiDayCrossTrend } = require('./technicalCalculations/IntraDayMetrics/processMultiDayCrossTrend');
 
 
 
@@ -142,9 +145,20 @@ async function updateMorningMetricsPreOpen()
                     const morningMetricsResults = calculateOpenTimeAndStretchMetrics(fiveMinCandleData)
                     const extremeProbByFiveMin = calculateHighLowTimeDistribution(fiveMinCandleData)
 
+                    const volumeDistributionByFiveMin = calculateIntraDayVolumeDistribution(fiveMinCandleData)
+
                     let openVolumeMetrics
                     if (morningMetricsResults.upSide?.averageTimeToPeak && morningMetricsResults.downSide?.averageTimeToBottom)
                         openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
+
+
+                    // const trades = await alpaca.getMultiQuotesV2(["PFE", "SPY"], {
+                    //     start: "2022-04-18T08:30:00Z",
+                    //     end: "2022-04-18T08:31:00Z",
+                    //     limit: 2,
+                    // });
+
+                    // console.log(trades.get('SPY'))
 
                     bulkOperations.push({
                         updateOne: {
@@ -155,10 +169,10 @@ async function updateMorningMetricsPreOpen()
                                     morningMetrics: morningMetricsResults,
                                     morningVolumeMetrics: openVolumeMetrics,
                                     extremeProbByFiveMin: extremeProbByFiveMin,
+                                    volumeDistributionMetrics: volumeDistributionByFiveMin,
                                     dateMorningMetricsLastCalculated: new Date()
                                 }
-                            },
-                            upsert: true
+                            }
                         }
                     });
                 }
@@ -199,7 +213,10 @@ async function updateDailyValuesPostClose()
         else if (t?.channelPattern.anchorDate) anchorDate = t.channelPattern.anchorDate
         else if (t?.continuationPattern.anchorDate) anchorDate = t.continuationPattern.anchorDate
 
-        return { symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate, classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern }
+        return {
+            symbol: t.tickerSymbol, sector: t.sector, relevantCandleDate: t.relevantCandleDate,
+            classification: t.patternClassification, anchor: anchorDate, cascadePattern: t?.cascadePattern
+        }
     })
 
 
@@ -303,7 +320,8 @@ async function updateDailyValuesPostClose()
                             }
                             break;
                         case 'channel':
-                            channelPattern = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
+                            // if (!stock.channelPattern.isPatternManuallyAdjusted)
+                            //     channelPattern = projectAdaptiveChannelWithOptimizedCeiling(candleData, stock.anchor, 5, calculatedDailyValues.spyBetaValue)
                             break;
                         case 'continuation':
                             continuationPattern = projectContinuationTrendMetrics(candleData, stock.anchor, calculatedDailyValues.spyBetaValue)
@@ -516,7 +534,83 @@ async function updateRetailVsInstitutional()
 }
 
 
+async function updateOpenCrosses()
+{
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol openCrossMetrics')
 
+
+    let startDate = new Date()
+    let endDate = new Date()
+    if (isWeekend(startDate))
+    {
+        startDate = previousFriday(new Date())
+        endDate = previousFriday(new Date())
+    }
+    startDate.setHours(9, 30, 0, 0)
+    endDate.setHours(9, 31, 0, 0)
+
+    // Split your massive list into safe 50-ticker sub-arrays
+    const batches = chunkArray(foundPlans, 50);
+    // Sequential loop through chunks to protect API rate limits
+    for (const [index, batch] of batches.entries())
+    {
+        try
+        {
+            const onlyTickersFromBatch = foundPlans.map(t => t.tickerSymbol)
+            const fiveMinCandles = await alpaca.getMultiTradesV2(onlyTickersFromBatch, { start: startDate, end: endDate })
+
+            const bulkOperations = [];
+            // Map over the chunk keys to perform calculations
+            for (const stock of batch)
+            {
+                const fiveMinCandleData = fiveMinCandles.get(stock.tickerSymbol)
+                if (!fiveMinCandleData || fiveMinCandleData.length === 0) continue
+
+                const openCrossResults = reviewOpeningMinuteTape(fiveMinCandleData)
+
+                let copyArray = [...stock.openCrossMetrics.previousOpenCross]
+
+                const crossMetrics = {
+                    date: startDate,
+                    officialAuctionCrossPrice: openCrossResults.officialAuctionCrossPrice,
+                    maximumBlockSizeFound: openCrossResults.maximumBlockSizeFound
+                }
+
+
+                const results = processMultiDayCrossTrend(crossMetrics, copyArray)
+
+                bulkOperations.push({
+                    updateOne: {
+                        filter: { _id: stock._id },
+                        update: {
+                            $set: {
+                                openCrossMetrics: {
+                                    previousOpenCross: results.updatedHistoryLogs,
+                                    todaysOpenCross: crossMetrics,
+                                    sixDayBias: { ...results }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            }
+
+            if (bulkOperations.length > 0)
+            {
+                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
+                console.log(`Successfully updated database for batch ${index + 1} of Open Cross Metrics. Modified: ${result.upsertedCount + result.modifiedCount}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+        } catch (batchError)
+        {
+            console.error(`Error encountered processing batch ${index + 1}:`, batchError.message);
+            // Script continues to next batch safely instead of crashing completely
+        }
+    }
+}
 
 
 
@@ -525,12 +619,13 @@ function initScheduler()
 {
     console.log('Scheduler is initialized')
 
-
-
+    // updateMorningMetricsPreOpen()
+    updateOpenCrosses()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
 
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
 
+    cron.schedule('32 9 * * *', () => { if (!isWeekend(new Date())) updateOpenCrosses() })
 
     cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
     cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })

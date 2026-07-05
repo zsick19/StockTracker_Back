@@ -34,7 +34,8 @@ const CSV_HEADER_TRANSLATION_DICT = {
     "Gap (%)": "DaysGapPercent",
     "Pos. Range": "PositionInRangePercent",
     "Short % Shares": "ShortPercentOfShares",
-    "Shares Institut.":"InstitutionalSharePercent"
+    "Shares Institut.":"InstitutionalSharePercent",
+    'Website':'Website'
 };
 
 module.exports = { CSV_HEADER_TRANSLATION_DICT }

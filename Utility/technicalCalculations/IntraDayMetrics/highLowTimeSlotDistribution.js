@@ -109,8 +109,8 @@ function calculateHighLowTimeDistribution(candles)
 
         return {
             time: timeKey,
-            highProb: parseFloat(highProb.toFixed(2)),
-            lowProb: parseFloat(lowProb.toFixed(2))
+            highProb: parseFloat(highProb.toFixed()),
+            lowProb: parseFloat(lowProb.toFixed())
         };
     });
 

@@ -75,6 +75,7 @@ const uploadStockCSVFile = asyncHandler(async (req, res) =>
                     PositionInRangePercent: cleanPercentageToFloat(row.PositionInRangePercent),
                     ShortPercentOfShares: cleanPercentageToFloat(row.ShortPercentOfShares),
                     InstitutionalSharePercent: cleanPercentageToFloat(row.InstitutionalSharePercent),
+                    Website: row.Website,
                     LastUpdated: new Date()
                 };
 

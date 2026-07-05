@@ -17,5 +17,6 @@ router.route("/today/bars/regularSession/minute")
 router.route("/today/trades")
     .get(EngineController.fetchTradeEngineData);
 
-
+router.route('/today/openCross')
+    .get(EngineController.fetchOpeningCrossData)
 module.exports = router;

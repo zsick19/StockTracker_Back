@@ -93,6 +93,8 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
 
     maintainLiveCandles: Boolean,
 
+
+
     extentProb: {
         openH: Number,
         openL: Number,
@@ -132,10 +134,36 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         fiveMinDownDay: [Number],
         tenMinDownDay: [Number]
     },
-
+    volumeDistributionMetrics: {
+        fiveMinAvgVolume: [Number],
+        fiveMinAvgVolumeShare: {
+            firstHour: Number,
+            midDay: Number,
+            lastHour: Number,
+            lastFiveMins: Number
+        },
+        fiveMinAvgLowestVolume: {
+            oneHourLowestVolume: String,
+            startingIndex: Number
+        }
+    },
     volumeProfileMetrics: {
         overHeadResistance: [supportResistanceSchema],
         underlyingSupport: [supportResistanceSchema]
+    },
+    openCrossMetrics: {
+        previousOpenCross: [],
+        todaysOpenCross: {
+            date: Date,
+            officialAuctionCrossPrice: Number,
+            maximumBlockSizeFound: Number
+        },
+        sixDayBias: {
+            auctionTrendBias: String,
+            auctionSlopeCoefficient: Number,
+            auctionVelocityDelta: Number,
+            auctionDecelerationAlert: Boolean
+        }
     },
 
     optionsExpectedMoves: {
@@ -204,7 +232,8 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         entryStrikeBuffer: Number,
         stopLossBufferMultiplier: Number,
         requiredVolumeMultiplier: Number,
-        anchorDate: Date
+        anchorDate: Date,
+        isPatternManuallyAdjusted: Boolean
     },
     continuationPattern: {
         trendHealthScore: Number,

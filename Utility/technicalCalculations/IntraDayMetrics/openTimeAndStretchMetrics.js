@@ -179,14 +179,14 @@ function calculateOpenTimeAndStretchMetrics(candles)
             sampleSizeDays: downOpeningDaysCount,
             averageInitialDropStretch: parseFloat((totalDownStretchPercent / (downOpeningDaysCount || 1)).toFixed(2)),
             averageTimeToBottom: downOpeningDaysCount ? minutesToTimeString(downBottomMinutesSum / downOpeningDaysCount) : undefined,
-            reboundProbability: parseFloat(((downReboundSuccessCount / (downOpeningDaysCount || 1)) * 100).toFixed(2)),
+            reboundProbability: parseFloat(((downReboundSuccessCount / (downOpeningDaysCount || 1)) * 100).toFixed()),
             averageSuccessfulReboundExpansion: downReboundSuccessCount ? parseFloat((totalDownReboundSizePercent / downReboundSuccessCount).toFixed(2)) : undefined
         },
         upSide: {
             sampleSizeDays: upOpeningDaysCount,
             averageInitialRallyStretch: parseFloat((totalUpStretchPercent / (upOpeningDaysCount || 1)).toFixed(2)),
             averageTimeToPeak: upOpeningDaysCount ? minutesToTimeString(upPeakMinutesSum / upOpeningDaysCount) : undefined,
-            pullbackBelowOpenProbability: parseFloat(((upPullbackSuccessCount / (upOpeningDaysCount || 1)) * 100).toFixed(2)),
+            pullbackBelowOpenProbability: parseFloat(((upPullbackSuccessCount / (upOpeningDaysCount || 1)) * 100).toFixed()),
             averageSuccessfulPullbackSize: upPullbackSuccessCount ? parseFloat((totalUpPullbackSizePercent / upPullbackSuccessCount).toFixed(2)) : undefined
         }
     };

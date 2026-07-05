@@ -52,12 +52,18 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
     foundMacroPlans.forEach((t) => { allPlans.push(t.tickerSymbol) })
 
 
-    const todayStart = new Date()
+    let todayStart = new Date()
+    let startMin = subMinutes(new Date(), 2)
+    if (isWeekend(todayStart))
+    {
+
+        todayStart = previousThursday(new Date())
+    }
     todayStart.setHours(0, 0, 0, 0)
+
     const startDate = subBusinessDays(todayStart, 10)
     const threeDayStart = subBusinessDays(todayStart, 3)
     const yesterday = subBusinessDays(todayStart, 1)
-    const startMin = subMinutes(new Date(), 2)
 
     try
     {
@@ -122,7 +128,8 @@ const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    const todayStart = new Date()
+    let todayStart = new Date()
+    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
     const tickersForHistoricalData = foundUser.planAndTrackedStocks.map(t => t.tickerSymbol)
@@ -159,10 +166,13 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    const todayStart = new Date()
+    let todayStart = new Date()
+    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
     todayStart.setHours(0, 0, 0, 0)
     const startDate = subBusinessDays(todayStart, 1)
     const tickersForHistoricalData = []
+
+
     foundUser.planAndTrackedStocks.forEach(t => { if (!t.maintainLiveCandles) tickersForHistoricalData.push(t.tickerSymbol) })
 
     if (tickersForHistoricalData.length === 0) return res.json([])
@@ -173,7 +183,6 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
             const tickerData = await alpaca.getMultiBarsV2(tickersForHistoricalData, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate });
             const candleData = {}
             for await (let singleStock of tickerData) { candleData[singleStock[0]] = singleStock[1] }
-            console.log(candleData)
             res.json({ planData: candleData });
         })
     } catch (error)
@@ -189,9 +198,11 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
-  
-        const todayStart = new Date()
+
+    let todayStart = new Date()
+    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
     todayStart.setHours(0, 0, 0, 0)
+
     const startDate = subBusinessDays(todayStart, 1)
     const oneMinTickers = []
     foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
@@ -248,11 +259,23 @@ const fetchTradeEngineData = asyncHandler(async (req, res) =>
     }
 })
 
+const fetchOpeningCrossData = asyncHandler(async (req, res) =>
+{
+    if (!req.userId) return res.status(400).send("missing information");
+    const foundUser = await User.findById(req.userId)
+        .populate('planAndTrackedStocks', 'tickerSymbol openCrossMetrics')
+        .select('planAndTrackedStocks -_id');
+
+    if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+    res.json(foundUser)
+})
 
 module.exports = {
     fetchHistoricalEngineData,
     fetchTodaysOpenEngineData,
     fetchTodaysRegularEngineData,
     fetchTodaysRegularOneMinEngineData,
-    fetchTradeEngineData
+    fetchTradeEngineData,
+    fetchOpeningCrossData
 };
