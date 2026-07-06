@@ -4,6 +4,7 @@ const { CSV_HEADER_TRANSLATION_DICT } = require("../Utility/dbHelper");
 const fs = require('fs')
 const csv = require('csv-parser')
 const pdf = require('pdf-parse');
+const User = require("../models/User");
 
 
 
@@ -93,14 +94,20 @@ const uploadStockCSVFile = asyncHandler(async (req, res) =>
                 try
                 {
                     if (bulkOperationsBuffer.length > 0) { const bulkResult = await Stock.bulkWrite(bulkOperationsBuffer); }
+
+                    const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', populate: { path: 'stockId' }, select: 'stockId' }).select('planAndTrackedStocks tickerSymbol -_id ');
+
                     fs.unlinkSync(tempUploadedFilePath);
-                    return res.json({ success: true, recordsProcessed: bulkOperationsBuffer.length });
+                    return res.json({ success: true, recordsProcessed: bulkOperationsBuffer.length, stockInfoData: foundUser });
                 } catch (dbError)
                 {
                     if (fs.existsSync(tempUploadedFilePath)) fs.unlinkSync(tempUploadedFilePath);
                     return res.status(500).json({ success: false, error: dbError.message });
                 }
             });
+
+
+
     } catch (globalError)
     {
         return res.status(500).json({ success: false, error: globalError.message });
