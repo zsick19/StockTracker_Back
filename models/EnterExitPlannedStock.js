@@ -152,7 +152,11 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         underlyingSupport: [supportResistanceSchema]
     },
     openCrossMetrics: {
-        previousOpenCross: [],
+        previousOpenCross: [{
+            date: Date,
+            officialAuctionCrossPrice: Number,
+            maximumBlockSizeFound: Number
+        }],
         todaysOpenCross: {
             date: Date,
             officialAuctionCrossPrice: Number,

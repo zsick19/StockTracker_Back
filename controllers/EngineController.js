@@ -54,11 +54,7 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 
     let todayStart = new Date()
     let startMin = subMinutes(new Date(), 2)
-    if (isWeekend(todayStart))
-    {
-
-        todayStart = previousThursday(new Date())
-    }
+    if (isWeekend(todayStart)) { todayStart = previousFriday(new Date()) }
     todayStart.setHours(0, 0, 0, 0)
 
     const startDate = subBusinessDays(todayStart, 10)
