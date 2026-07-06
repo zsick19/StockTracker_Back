@@ -12,9 +12,23 @@ function calculateIntraDayVolumeDistribution(candles)
     if (!candles || candles.length === 0) return [];
 
     // 1. Group raw data into 5-minute time slots (e.g., "09:35", "15:45")
-    const timeSlots = {};
     const dailyTotals = {};
+    const generateFiveMinuteSlots = () =>
+    {
+        const start = new Date(2026, 0, 1, 9, 30);
+        const end = new Date(2026, 0, 1, 16, 0);
 
+        // Use the step option to jump by 5 minutes
+        const intervals = eachMinuteOfInterval({ start, end }, { step: 5 });
+
+        return intervals.reduce((acc, time) =>
+        {
+            const key = format(time, 'HH:mm');
+            acc[key] = { totalVolume: 0, sampleCount: 0 };
+            return acc;
+        }, {});
+    };
+    const timeSlots = generateFiveMinuteSlots();
     candles.forEach(candle =>
     {
         // Convert UTC timestamp to New York Market Time
@@ -32,7 +46,7 @@ function calculateIntraDayVolumeDistribution(candles)
         if (timeKey < "09:30" || timeKey > "16:00") return;
 
         // Accumulate volume for this specific time slot across history
-        if (!timeSlots[timeKey]) { timeSlots[timeKey] = { totalVolume: 0, sampleCount: 0 }; }
+        // if (!timeSlots[timeKey]) { timeSlots[timeKey] = { totalVolume: 0, sampleCount: 0 }; }
         timeSlots[timeKey].totalVolume += candle.Volume;
         timeSlots[timeKey].sampleCount += 1;
 
@@ -46,7 +60,7 @@ function calculateIntraDayVolumeDistribution(candles)
         const bucket = timeSlots[time];
         return {
             timeLabel: time,
-            averageVolume: Math.round(bucket.totalVolume / bucket.sampleCount),
+            averageVolume: bucket.totalVolume === 0 ? 0 : Math.round(bucket.totalVolume / bucket.sampleCount),
             distributionPercentage: 0 // Will be calculated in the next step
         };
     });
@@ -83,15 +97,13 @@ function calculateIntraDayVolumeDistribution(candles)
     volShares.firstHour = parseInt(volShares.firstHour.toFixed(0))
     volShares.lastHour = parseInt(volShares.lastHour.toFixed(2))
 
-    // const midDayResults = compileMiddayVolumeDensityMetrics(candles)
 
-    const trial = findLowestVolumeHour(profile)
-    console.log(trial)
+    const lowestVolumeHour = findLowestVolumeHour(profile)
 
     return {
         fiveMinAvgVolume: results,
         fiveMinAvgVolumeShare: volShares,
-        fiveMinAvgLowestVolume: { ...trial }
+        fiveMinAvgLowestVolume: { ...lowestVolumeHour }
     }
 }
 

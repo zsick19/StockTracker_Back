@@ -152,14 +152,6 @@ async function updateMorningMetricsPreOpen()
                         openVolumeMetrics = seedHistoricalVolumeWithPreMarket(fiveMinCandleData, morningMetricsResults.upSide.averageTimeToPeak, morningMetricsResults.downSide.averageTimeToBottom)
 
 
-                    // const trades = await alpaca.getMultiQuotesV2(["PFE", "SPY"], {
-                    //     start: "2022-04-18T08:30:00Z",
-                    //     end: "2022-04-18T08:31:00Z",
-                    //     limit: 2,
-                    // });
-
-                    // console.log(trades.get('SPY'))
-
                     bulkOperations.push({
                         updateOne: {
                             filter: { tickerSymbol: stock.symbol },
@@ -620,7 +612,7 @@ function initScheduler()
     console.log('Scheduler is initialized')
 
     // updateMorningMetricsPreOpen()
-    updateOpenCrosses()
+    // updateOpenCrosses()
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
 
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
