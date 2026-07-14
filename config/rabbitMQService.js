@@ -11,8 +11,8 @@ export const sendRabbitMessage = (req, res, queueName, taskData) =>
 
     const msg = JSON.stringify(task);
     channel.sendToQueue(queueName, Buffer.from(msg), { persistent: true })
-    // console.log(`Producer sent message:${msg}`)
 }
+
 
 export const rabbitQueueNames = {
     loggedInEnterExitPlanQueue: 'enterExitWatchListPrice',

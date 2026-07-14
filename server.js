@@ -98,6 +98,7 @@ async function connectToRabbitMQ()
   {
     rabbitConnection = await amqp.connect('amqp://127.0.0.1')
     rabbitChannel = await rabbitConnection.createChannel()
+
     await rabbitChannel.assertQueue(initiateTrackingQueueName, { durable: true })
     await rabbitChannel.assertQueue(updateTrackingQueueName, { durable: true })
     await rabbitChannel.assertQueue(rabbitQueueNames.singleGraphTickerQueue, { durable: true })

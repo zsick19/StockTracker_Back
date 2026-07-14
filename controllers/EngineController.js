@@ -4,7 +4,7 @@ const MacroChartedStock = require('../models/MacroChartedStock')
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 const asyncHandler = require("express-async-handler");
-const { isWeekend, previousFriday, previousThursday, subBusinessDays, endOfYesterday, subMinutes } = require("date-fns");
+const { isWeekend, previousFriday, previousThursday, subBusinessDays, endOfYesterday, subMinutes, set } = require("date-fns");
 const { retryOperation } = require("../Utility/sharedUtility");
 const { Mongoose, default: mongoose } = require("mongoose");
 
@@ -124,10 +124,10 @@ const fetchTodaysOpenEngineData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    let todayStart = new Date()
-    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
-    todayStart.setHours(0, 0, 0, 0)
-    const startDate = subBusinessDays(todayStart, 1)
+    let startDate
+    let todayStart = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 })
+    if (isWeekend(todayStart)) { startDate = previousFriday(todayStart) }
+    else { startDate = todayStart }
     const tickersForHistoricalData = foundUser.planAndTrackedStocks.map(t => t.tickerSymbol)
 
 
@@ -162,10 +162,11 @@ const fetchTodaysRegularEngineData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    let todayStart = new Date()
-    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
-    todayStart.setHours(0, 0, 0, 0)
-    const startDate = subBusinessDays(todayStart, 1)
+    let todayStart = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 })
+    let startDate = subBusinessDays(todayStart, 1)
+    if (isWeekend(todayStart)) { startDate = previousFriday(todayStart) }
+    else { startDate = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 }) }
+
     const tickersForHistoricalData = []
 
 
@@ -195,11 +196,11 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId).populate({ path: 'planAndTrackedStocks', select: 'tickerSymbol maintainLiveCandles -_id' }).select('planAndTrackedStocks -_id');
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    let todayStart = new Date()
-    if (isWeekend(todayStart)) todayStart = previousFriday(new Date())
-    todayStart.setHours(0, 0, 0, 0)
+    let startDate
+    let todayStart = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 })
+    if (isWeekend(todayStart)) { startDate = previousFriday(todayStart) }
+    else { startDate = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 }) }
 
-    const startDate = subBusinessDays(todayStart, 1)
     const oneMinTickers = []
     foundUser.planAndTrackedStocks.forEach((t) => { if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol) })
     oneMinTickers.push(...macroAndSectorTickers)

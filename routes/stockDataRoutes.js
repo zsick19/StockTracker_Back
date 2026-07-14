@@ -7,6 +7,10 @@ router.route("/ticker/:ticker")
 router.route("/date/:ticker")
     .post(StockDataController.stockDataFetchByDate)
 
+router.route("/dateRange/:ticker")
+    .post(StockDataController.stockDataFetchByStartAndEndDateWithIncrement)
+
+
 router.route('/atr/:ticker')
     .get(StockDataController.calculate14DayATR)
 

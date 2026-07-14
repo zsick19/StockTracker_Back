@@ -1,4 +1,4 @@
-const { parse, addMinutes, format } = require('date-fns')
+const { parse, addMinutes, eachMinuteOfInterval, format } = require('date-fns')
 
 /**
  * Processes multiple days of 5-minute candles to map out the historical 

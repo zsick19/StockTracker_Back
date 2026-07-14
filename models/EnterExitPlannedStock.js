@@ -22,6 +22,31 @@ const supportResistanceSchema = new mongoose.Schema({
     frictionRating: String
 }, { _id: false })
 
+const backTestedLedgerSchema = new mongoose.Schema({
+    details: {
+        wasExitHit: Boolean,
+        wasStopHit: Boolean,
+        tradeDate: Date,
+        holdDays: Number,
+        closeOrHoldTillDate: Date,
+    },
+    gain: {
+        maxGain: Number,
+        highestValue: Number,
+        highestValuePercent: Number,
+        missedGain: Number,
+        dateOfHighestValue: Date
+    },
+    pain: {
+        maxPain: Number,
+        avoidedPain: Number,
+        lowestValue: Number,
+        lowestValuePercent: Number,
+        dateOfLowestValue: Date
+    }
+}, { _id: false })
+
+
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
     stockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock" },
@@ -79,6 +104,57 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
             OpenPrice: Number,
             Timestamp: Date,
             Volume: Number,
+        }
+    },
+
+    relevantDateBackTests: {
+        backTests: [backTestedLedgerSchema],
+        averages: {
+            averageHoldTime: Number,
+            averageMaxGain: Number,
+            averageGainPercent: Number,
+            averageMaxPain: Number,
+            averagePainPercent: Number,
+            averageMissGain: Number,
+            averageSavedPain: Number,
+
+            totalNumberOfTrades: Number,
+            numberOfStoplossHitTrades: Number,
+            numberOfClosedTrades: Number,
+            numberOfOpenTrades: Number,
+
+            tradesSinceTracking: Number,
+            successfulOpportunitiesSinceTracking: Number,
+            patternLength: Number,
+            daysBetweenTrades: [Number],
+            averageDaysBetweenTrades: Number,
+            daysBetweenSuccessfulTrades: [Number],
+            averageDaysBetweenSuccessfulTrades: Number
+        }
+    },
+    relevantDateBackTestsUsingFloor: {
+        backTests: [backTestedLedgerSchema],
+        averages: {
+            averageHoldTime: Number,
+            averageMaxGain: Number,
+            averageGainPercent: Number,
+            averageMaxPain: Number,
+            averagePainPercent: Number,
+            averageMissGain: Number,
+            averageSavedPain: Number,
+
+            totalNumberOfTrades: Number,
+            numberOfStoplossHitTrades: Number,
+            numberOfClosedTrades: Number,
+            numberOfOpenTrades: Number,
+
+            tradesSinceTracking: Number,
+            successfulOpportunitiesSinceTracking: Number,
+            patternLength: Number,
+            daysBetweenTrades: [Number],
+            averageDaysBetweenTrades: Number,
+            daysBetweenSuccessfulTrades: [Number],
+            averageDaysBetweenSuccessfulTrades: Number
         }
     },
 

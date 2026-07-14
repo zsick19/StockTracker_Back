@@ -4,7 +4,7 @@ const asyncHandler = require("express-async-handler");
 const WatchList = require("../models/WatchList");
 const Alpaca = require('@alpacahq/alpaca-trade-api')
 const { ObjectId } = require("mongodb");
-const { subDays, subBusinessDays, sub, isWeekend, previousFriday, previousThursday } = require('date-fns');
+const { subDays, subBusinessDays, sub, isWeekend, previousFriday, previousThursday, endOfDay, startOfDay } = require('date-fns');
 const { retryOperation } = require("../Utility/sharedUtility");
 const Stock = require("../models/Stock");
 const { sendRabbitMessage, rabbitQueueNames } = require('../config/rabbitMQService')
@@ -114,6 +114,39 @@ const stockDataFetchByDate = asyncHandler(async (req, res) =>
 
 })
 
+
+const stockDataFetchByStartAndEndDateWithIncrement = asyncHandler(async (req, res) =>
+{
+  const { ticker } = req.params;
+  const { timeFrameIncrement, start, end } = req.body
+
+  if (!ticker || !timeFrameIncrement) return res.status(400).send('Missing Request Information')
+
+  let timeframeForAlpaca = alpaca.newTimeframe(timeFrameIncrement, alpaca.timeframeUnit.MIN);
+
+  const bod = startOfDay(start)
+  const eod = endOfDay(end)
+
+  try
+  {
+    await retryOperation(async () =>
+    {
+      const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start: bod, end: eod });
+      const candleData = []
+      for await (let singleStock of data) { candleData.push(singleStock) }
+
+
+
+
+      res.json(candleData)
+    })
+  } catch (error)
+  {
+    console.error('Error fetching data:', error);
+    res.status(500).json({ message: 'error requesting stock data' })
+  }
+
+})
 
 
 
@@ -336,5 +369,6 @@ module.exports = {
   fetchGroupedStockData,
   calculate14DayATR,
   fetchGroupTinyCharts,
-  fetchRRGStockCompareData
+  fetchRRGStockCompareData,
+  stockDataFetchByStartAndEndDateWithIncrement
 };
