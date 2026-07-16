@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const EngineController = require("../controllers/EngineController");
+const DeepDiscountController = require('../controllers/DeepDiscountEngineController')
 
 router.route("/historical")
     .get(EngineController.fetchHistoricalEngineData);
@@ -19,4 +20,12 @@ router.route("/today/trades")
 
 router.route('/today/openCross')
     .get(EngineController.fetchOpeningCrossData)
+
+
+
+
+router.route("/deepDiscount")
+    .post(DeepDiscountController.fetchHistoricalEngineData);
+
+
 module.exports = router;

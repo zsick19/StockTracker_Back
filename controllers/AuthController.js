@@ -56,7 +56,7 @@ const registerNewTestUser = asyncHandler(async (req, res) =>
 
 const registerMacroStocksToUser = asyncHandler(async (req, res) =>
 {
-  console.log(req.userId)
+  // console.log(req.userId)
   let groupToAddToMacroStocks = sectorTickerSymbols.map((sector) =>
   {
     return {
@@ -86,7 +86,7 @@ const registerMacroStocksToUser = asyncHandler(async (req, res) =>
 
   const results = await MacroChartedStock.insertMany(groupToAddToMacroStocks)
 
-  console.log(results)
+  // console.log(results)
   res.json({ m: 'connected' })
 })
 

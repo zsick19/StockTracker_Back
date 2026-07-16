@@ -180,7 +180,7 @@ const createUserSavedMarketFilter = asyncHandler(async (req, res) =>
 
   savedMarketSearchFilters.push(filterToAdd)
   foundUser.marketSearchFilters = savedMarketSearchFilters
-  console.log(foundUser)
+  // console.log(foundUser)
 
   await foundUser.save()
   res.json(foundUser.marketSearchFilters)
@@ -197,7 +197,7 @@ const removeUserSavedMarketFilter = asyncHandler(async (req, res) =>
 
   if (savedMarketSearchFilters[index].title === filterToRemove.title)
   {
-    console.log(index, filterToRemove.title)
+    // console.log(index, filterToRemove.title)
     foundUser.marketSearchFilters = savedMarketSearchFilters.filter((filter, indexT) => indexT !== index)
   }
   else { foundUser.marketSearchFilters = savedMarketSearchFilters.filter((filter) => filter.title !== filterToRemove.title) }

@@ -104,6 +104,7 @@ async function connectToRabbitMQ()
     await rabbitChannel.assertQueue(rabbitQueueNames.singleGraphTickerQueue, { durable: true })
     await rabbitChannel.assertQueue(rabbitQueueNames.updateEMAlertQueue, { durable: true })
     await rabbitChannel.assertQueue(rabbitQueueNames.newsPassToAiAlert, { durable: false })
+    await rabbitChannel.assertQueue(rabbitQueueNames.liveQuotesSubscribe, { durable: true })
     console.log('Producer connected To RabbitMQ')
 
     app.locals.channel = rabbitChannel

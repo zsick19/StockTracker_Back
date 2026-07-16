@@ -24,5 +24,6 @@ export const rabbitQueueNames = {
     removeTempTickerQueue: 'removeTempTicker',
     enterExitTradeQueue: 'enterExitTradeQueue',
     updateEMAlertQueue: 'updateEMAlert',
-    newsPassToAiAlert: 'news_processing'
+    newsPassToAiAlert: 'news_processing',
+    liveQuotesSubscribe: 'liveQuotesSubscribe'
 }

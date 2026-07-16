@@ -122,7 +122,7 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
         {
             return res.status(400).json({ error: 'No file uploaded.' });
         }
-        console.log(req.file)
+        // console.log(req.file)
         // Convert file buffer to string
         const fileContent = req.file.buffer.toString('utf-8');
 
