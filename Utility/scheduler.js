@@ -38,7 +38,6 @@ const { processBackTests } = require('./ScheduledTasks/backTestAverages');
 
 
 
-
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
@@ -641,6 +640,8 @@ async function updateHiddenTrades()
                     }
 
                     const entryStrikeBufferResults = processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleData)
+                    // const discountPrices = processDeepDiscountPrices(stopLossPrice, entryFloorPrice, entryStrikeBufferResults.averages.lowestPatternValue, entryStrikeBufferResults.backTests)
+                    // console.log(entryStrikeBufferResults.averages.lowestPatternValue, discountPrices)
                     const entryFloorResults = processBackTests(entryFloorPrice, exitPrice, stopLossPrice, stock, candleData)
 
                     //Construct efficient upsert bulk actions

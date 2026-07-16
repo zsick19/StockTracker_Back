@@ -27,13 +27,16 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
         averages: {}
     }
 
+    const floatTo2Digits = (number) => { return parseFloat(number.toFixed(2)) }
+    const numberOfSharesWith1000 = Math.floor(1000 / entryPrice)
+
 
     const backTestedTrades = entryTriggered.map((t, i) =>
     {
         let wasStopHit = false
         let lowestValue = entryPrice
-        let dateOfLowestValue
-        let dateOfHighestValue
+        let dateOfLowestValue = t.tradeDate
+        let dateOfHighestValue = t.tradeDate
         let highestValue = entryPrice
         let wasExitHit = false
         let holdTillDate = t.tradeDate
@@ -67,11 +70,9 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
                 }
             }
         }
+
+
         return {
-            // exitPrice: t.exitPrice,
-            // entryPrice: t.entryPrice,
-            // stopLossPrice: t.stopLossPrice,
-            // tradeDateRange: t.range,
             details: {
                 wasExitHit,
                 wasStopHit,
@@ -80,18 +81,18 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
                 closeOrHoldTillDate: holdTillDate,
             },
             gain: {
-                maxGain: parseFloat(((highestValue - t.entryPrice) * 1000).toFixed(2)),
-                missedGain: wasExitHit ? parseFloat(((highestValue - t.exitPrice) * 1000).toFixed(2)) : 0,
+                maxGain: floatTo2Digits(((highestValue - entryPrice) * numberOfSharesWith1000)),
+                missedGain: wasExitHit ? floatTo2Digits(((highestValue - exitPrice) * numberOfSharesWith1000)) : 0,
                 highestValue,
                 dateOfHighestValue,
-                highestValuePercent: parseFloat(((highestValue - t.entryPrice) * 100 / t.entryPrice).toFixed(2)),
+                highestValuePercent: floatTo2Digits(((highestValue - entryPrice) * 100 / entryPrice)),
             },
             pain: {
-                maxPain: parseFloat(((t.entryPrice - lowestValue) * 1000).toFixed(2)),
-                avoidedPain: wasStopHit ? parseFloat(((t.stopLossPrice - lowestValue) * 1000).toFixed(2)) : 0,
+                maxPain: floatTo2Digits(((entryPrice - lowestValue) * numberOfSharesWith1000)),
+                avoidedPain: wasStopHit ? floatTo2Digits(((stopLossPrice - lowestValue) * numberOfSharesWith1000)) : 0,
                 lowestValue,
                 dateOfLowestValue,
-                lowestValuePercent: parseFloat(((t.entryPrice - lowestValue) * 100 / t.entryPrice).toFixed(2)),
+                lowestValuePercent: floatTo2Digits(((entryPrice - lowestValue) * 100 / entryPrice)),
             }
         }
     })
@@ -106,11 +107,17 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
     let avgMissedGain = 0
     let avgSavedPain = 0
 
+    let mGain = 0
+    let mPain = 0
 
     let countSinceTracking = 0
     let successfulOpportunitiesSinceTracking = 0
     let businessDaysBetweenTrades = []
     let businessDaysBetweenSuccessfulTrades = []
+
+
+    let lowestPatternValue = entryPrice
+    let highestPatternValue = entryPrice
 
     backTestedTrades.forEach(t =>
     {
@@ -134,6 +141,12 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
             numberOfStoplossHitTrades += 1
         }
 
+        if (t.gain.highestValue > highestPatternValue) highestPatternValue = t.gain.highestValue
+        if (t.pain.lowestValue < lowestPatternValue) lowestPatternValue = t.pain.lowestValue
+
+        if (t.gain.maxGain > mGain) mGain = t.gain.maxGain
+        if (t.pain.maxPain > mPain) mPain = t.pain.maxPain
+
         avgMaxGain += t.gain.maxGain
         avgGainPercent += t.gain.highestValuePercent
 
@@ -147,7 +160,6 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
     let daysBetweenSuccessfulTrades = businessDaysBetweenSuccessfulTrades.slice(0, -1).map((num, i) => businessDaysBetweenSuccessfulTrades[i + 1] - num)
 
 
-    const floatTo2Digits = (number) => { return parseFloat((number).toFixed(2)) }
     const numberOfBackTestedTrades = backTestedTrades.length
     const averagesFromBackTesting = {
         averageHoldTime: numberOfClosedTrades > 0 ? floatTo2Digits(avgHoldTime / numberOfClosedTrades) : 0,
@@ -170,7 +182,14 @@ function processBackTests(entryPrice, exitPrice, stopLossPrice, stock, candleDat
         daysBetweenSuccessfulTrades: daysBetweenSuccessfulTrades,
         averageDaysBetweenTrades: daysBetweenTrades.length > 0 ? floatTo2Digits(daysBetweenTrades.reduce((sum, num) => sum + num, 0) / daysBetweenTrades.length) : 0,
         averageDaysBetweenSuccessfulTrades: daysBetweenSuccessfulTrades.length > 0 ? floatTo2Digits(daysBetweenSuccessfulTrades.reduce((sum, num) => sum + num, 0) / daysBetweenSuccessfulTrades.length) : 0,
+        patternMaxPain: mPain,
+        patternMaxGain: mGain,
+        positionReward: floatTo2Digits((exitPrice - entryPrice) * numberOfSharesWith1000),
+        positionRisk: floatTo2Digits((entryPrice - stopLossPrice) * numberOfSharesWith1000),
+        lowestPatternValue,
+        highestPatternValue
     }
+
     return {
         backTests: backTestedTrades,
         averages: averagesFromBackTesting

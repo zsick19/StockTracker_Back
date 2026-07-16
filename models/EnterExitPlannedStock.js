@@ -46,6 +46,36 @@ const backTestedLedgerSchema = new mongoose.Schema({
     }
 }, { _id: false })
 
+const backTestedAverageSchema = new mongoose.Schema({
+    averageHoldTime: Number,
+    averageMaxGain: Number,
+    averageGainPercent: Number,
+    averageMaxPain: Number,
+    averagePainPercent: Number,
+    averageMissGain: Number,
+    averageSavedPain: Number,
+
+    totalNumberOfTrades: Number,
+    numberOfStoplossHitTrades: Number,
+    numberOfClosedTrades: Number,
+    numberOfOpenTrades: Number,
+
+    tradesSinceTracking: Number,
+    successfulOpportunitiesSinceTracking: Number,
+    patternLength: Number,
+    daysBetweenTrades: [Number],
+    averageDaysBetweenTrades: Number,
+    daysBetweenSuccessfulTrades: [Number],
+    averageDaysBetweenSuccessfulTrades: Number,
+
+    patternMaxGain: Number,
+    patternMaxPain: Number,
+    positionReward: Number,
+    positionRisk: Number,
+    lowestPatternValue: Number,
+    highestPatternValue: Number
+}, { _id: false })
+
 
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
@@ -109,55 +139,16 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
 
     relevantDateBackTests: {
         backTests: [backTestedLedgerSchema],
-        averages: {
-            averageHoldTime: Number,
-            averageMaxGain: Number,
-            averageGainPercent: Number,
-            averageMaxPain: Number,
-            averagePainPercent: Number,
-            averageMissGain: Number,
-            averageSavedPain: Number,
-
-            totalNumberOfTrades: Number,
-            numberOfStoplossHitTrades: Number,
-            numberOfClosedTrades: Number,
-            numberOfOpenTrades: Number,
-
-            tradesSinceTracking: Number,
-            successfulOpportunitiesSinceTracking: Number,
-            patternLength: Number,
-            daysBetweenTrades: [Number],
-            averageDaysBetweenTrades: Number,
-            daysBetweenSuccessfulTrades: [Number],
-            averageDaysBetweenSuccessfulTrades: Number
-        }
+        averages: backTestedAverageSchema
     },
     relevantDateBackTestsUsingFloor: {
         backTests: [backTestedLedgerSchema],
-        averages: {
-            averageHoldTime: Number,
-            averageMaxGain: Number,
-            averageGainPercent: Number,
-            averageMaxPain: Number,
-            averagePainPercent: Number,
-            averageMissGain: Number,
-            averageSavedPain: Number,
-
-            totalNumberOfTrades: Number,
-            numberOfStoplossHitTrades: Number,
-            numberOfClosedTrades: Number,
-            numberOfOpenTrades: Number,
-
-            tradesSinceTracking: Number,
-            successfulOpportunitiesSinceTracking: Number,
-            patternLength: Number,
-            daysBetweenTrades: [Number],
-            averageDaysBetweenTrades: Number,
-            daysBetweenSuccessfulTrades: [Number],
-            averageDaysBetweenSuccessfulTrades: Number
-        }
+        averages: backTestedAverageSchema
     },
-
+    deepDiscounts: {
+        reviewed: { type: Boolean, default: false },
+        dateReviewed: Date
+    },
     correlationValues: {
         SPY: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
         IWM: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },

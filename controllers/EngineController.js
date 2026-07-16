@@ -52,14 +52,13 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
     foundMacroPlans.forEach((t) => { allPlans.push(t.tickerSymbol) })
 
 
-    let todayStart = new Date()
+    let todayStart = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 })
     let startMin = subMinutes(new Date(), 2)
     if (isWeekend(todayStart)) { todayStart = previousFriday(new Date()) }
-    todayStart.setHours(0, 0, 0, 0)
 
     const startDate = subBusinessDays(todayStart, 10)
     const threeDayStart = subBusinessDays(todayStart, 3)
-    const yesterday = subBusinessDays(todayStart, 1)
+    const yesterday = todayStart
 
     try
     {

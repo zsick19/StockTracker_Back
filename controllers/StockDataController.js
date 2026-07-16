@@ -118,14 +118,15 @@ const stockDataFetchByDate = asyncHandler(async (req, res) =>
 const stockDataFetchByStartAndEndDateWithIncrement = asyncHandler(async (req, res) =>
 {
   const { ticker } = req.params;
-  const { timeFrameIncrement, start, end } = req.body
+  const { timeFrameIncrement, daily, start, end } = req.body
 
-  if (!ticker || !timeFrameIncrement) return res.status(400).send('Missing Request Information')
+  if (!ticker || (!timeFrameIncrement && !daily)) return res.status(400).send('Missing Request Information')
 
   let timeframeForAlpaca = alpaca.newTimeframe(timeFrameIncrement, alpaca.timeframeUnit.MIN);
+  if (daily) timeframeForAlpaca = alpaca.newTimeframe(1, alpaca.timeframeUnit.DAY)
 
   const bod = startOfDay(start)
-  const eod = endOfDay(end)
+  const eod = end ? endOfDay(end) : endOfDay(new Date())
 
   try
   {
@@ -134,10 +135,6 @@ const stockDataFetchByStartAndEndDateWithIncrement = asyncHandler(async (req, re
       const data = await alpaca.getBarsV2(ticker, { timeframe: timeframeForAlpaca, start: bod, end: eod });
       const candleData = []
       for await (let singleStock of data) { candleData.push(singleStock) }
-
-
-
-
       res.json(candleData)
     })
   } catch (error)
@@ -145,7 +142,6 @@ const stockDataFetchByStartAndEndDateWithIncrement = asyncHandler(async (req, re
     console.error('Error fetching data:', error);
     res.status(500).json({ message: 'error requesting stock data' })
   }
-
 })
 
 
