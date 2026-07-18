@@ -146,8 +146,22 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         averages: backTestedAverageSchema
     },
     deepDiscounts: {
-        reviewed: { type: Boolean, default: false },
-        dateReviewed: Date
+        dateReviewed: Date,
+        aboveStopLoss: {
+            price: Number,
+            dateSet: Date,
+            profile: Number
+        },
+        belowStopLoss: {
+            price: Number,
+            dateSet: Date,
+            profile: Number
+        },
+        aboveMaxPain: {
+            price: Number,
+            dateSet: Date,
+            profile: Number
+        }
     },
     correlationValues: {
         SPY: { correlation30Day: Number, correlation90Day: Number, isCoreCoIntegrationValid: Boolean, isCurrentlyDecoupled: Boolean },
