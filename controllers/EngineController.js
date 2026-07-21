@@ -262,10 +262,43 @@ const fetchOpeningCrossData = asyncHandler(async (req, res) =>
         .populate('planAndTrackedStocks', 'tickerSymbol openCrossMetrics')
         .select('planAndTrackedStocks -_id');
 
+
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
     res.json(foundUser)
 })
+
+const fetchMorningData = asyncHandler(async (req, res) =>
+{
+    if (!req.userId) return res.status(400).send("missing information");
+    const foundUser = await User.findById(req.userId)
+        .populate('planAndTrackedStocks', 'tickerSymbol optionsExpectedMoves dateOptionsEMLastCalculated extentProb morningMetrics morningVolumeMetrics extremeProbByFiveMin volumeDistributionMetrics dateMorningMetricsLastCalculated')
+        .select('planAndTrackedStocks -_id');
+
+    if (!foundUser) res.status(404).json({ message: 'User not found.' })
+    res.json(foundUser)
+})
+const fetchMiddayData = asyncHandler(async (req, res) =>
+{
+    if (!req.userId) return res.status(400).send("missing information");
+    const foundUser = await User.findById(req.userId)
+        .populate('planAndTrackedStocks', 'tickerSymbol optionsExpectedMoves dateOptionsEMLastCalculated')
+        .select('planAndTrackedStocks -_id');
+
+    if (!foundUser) res.status(404).json({ message: 'User not found.' })
+    res.json(foundUser)
+})
+const fetchPostCloseData = asyncHandler(async (req, res) =>
+{
+    if (!req.userId) return res.status(400).send("missing information");
+    const foundUser = await User.findById(req.userId)
+        .populate('planAndTrackedStocks', 'tickerSymbol relevantDateBackTests relevantDateBackTestsUsingFloor volumeProfileMetrics dateVolumeProfileLastCalculated retailVsInstitutionMetrics dateRvILastCalculated absorptionWindowMetrics dateAbsorptionWindowLastCalculated dailyTickerValues correlationValues greatestCorrelation channelPattern continuationPattern cascadePattern datePatternLastCalculated')
+        .select('planAndTrackedStocks -_id');
+
+    if (!foundUser) res.status(404).json({ message: 'User not found.' })
+    res.json(foundUser)
+})
+
 
 module.exports = {
     fetchHistoricalEngineData,
@@ -273,5 +306,8 @@ module.exports = {
     fetchTodaysRegularEngineData,
     fetchTodaysRegularOneMinEngineData,
     fetchTradeEngineData,
-    fetchOpeningCrossData
+    fetchMorningData,
+    fetchOpeningCrossData,
+    fetchMiddayData,
+    fetchPostCloseData
 };

@@ -107,7 +107,6 @@ async function updateHighImportanceAndTradeMorningMetrics()
 
     console.log(`${importantEnterExitPlans.length} High Importance Plans and Trades were updated with metrics`)
 }
-
 async function updateMorningMetricsPreOpen()
 {
     const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol')
@@ -189,6 +188,117 @@ async function updateMorningMetricsPreOpen()
         }
     }
 }
+async function updateOpenCrosses()
+{
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol openCrossMetrics')
+
+
+    let startDate = new Date()
+    let endDate = new Date()
+    if (isWeekend(startDate))
+    {
+        startDate = previousFriday(new Date())
+        endDate = previousFriday(new Date())
+    }
+    startDate.setHours(9, 30, 0, 0)
+    endDate.setHours(9, 31, 0, 0)
+
+    // Split your massive list into safe 50-ticker sub-arrays
+    const batches = chunkArray(foundPlans, 50);
+    // Sequential loop through chunks to protect API rate limits
+    for (const [index, batch] of batches.entries())
+    {
+        try
+        {
+            const onlyTickersFromBatch = foundPlans.map(t => t.tickerSymbol)
+            const fiveMinCandles = await alpaca.getMultiTradesV2(onlyTickersFromBatch, { start: startDate, end: endDate })
+
+            const bulkOperations = [];
+            // Map over the chunk keys to perform calculations
+            for (const stock of batch)
+            {
+                const fiveMinCandleData = fiveMinCandles.get(stock.tickerSymbol)
+                if (!fiveMinCandleData || fiveMinCandleData.length === 0) continue
+
+                const openCrossResults = reviewOpeningMinuteTape(fiveMinCandleData)
+
+                let copyArray = [...stock.openCrossMetrics.previousOpenCross]
+
+                const crossMetrics = {
+                    date: startDate,
+                    officialAuctionCrossPrice: openCrossResults.officialAuctionCrossPrice,
+                    maximumBlockSizeFound: openCrossResults.maximumBlockSizeFound
+                }
+
+
+                const results = processMultiDayCrossTrend(crossMetrics, copyArray)
+
+                bulkOperations.push({
+                    updateOne: {
+                        filter: { _id: stock._id },
+                        update: {
+                            $set: {
+                                openCrossMetrics: {
+                                    previousOpenCross: results.updatedHistoryLogs,
+                                    todaysOpenCross: crossMetrics,
+                                    sixDayBias: { ...results }
+                                }
+                            }
+                        }
+                    }
+                });
+
+            }
+
+            if (bulkOperations.length > 0)
+            {
+                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
+                console.log(`Successfully updated database for batch ${index + 1} of Open Cross Metrics. Modified: ${result.upsertedCount + result.modifiedCount}`);
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+        } catch (batchError)
+        {
+            console.error(`Error encountered processing batch ${index + 1}:`, batchError.message);
+            // Script continues to next batch safely instead of crashing completely
+        }
+    }
+}
+
+
+
+async function updateOptionsContractInformation()
+{
+
+    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol patternClassification')
+    let tickerList = foundPlans.filter(t => t.patternClassification !== undefined).map(t => t.tickerSymbol)
+    const fullWatchlistSymbols = await Stock.find({ Symbol: { $in: tickerList }, HasOptions: true });
+    if (fullWatchlistSymbols.length === 0) return console.log(`No current plans need options update....`)
+
+
+    console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
+    const targetedBatches = chunkArray(fullWatchlistSymbols, 20);
+
+    for (const activeBatch of targetedBatches)
+    {
+        try
+        {
+            const tickerActiveBatch = activeBatch.map((t) => t.Symbol)
+            console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${tickerActiveBatch.join(', ')}]`);
+            const snapShots = await alpaca.getSnapshots(tickerActiveBatch)
+            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(tickerActiveBatch, snapShots);
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+        } catch (subBatchError)
+        {
+            console.error(`❌ Ingestion Failure inside active batch:`, subBatchError);
+        }
+    }
+}
+
+
+
 
 async function updateDailyValuesPostClose()
 {
@@ -360,36 +470,6 @@ async function updateDailyValuesPostClose()
         }
     }
 }
-
-async function updateOptionsContractInformation()
-{
-
-    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol patternClassification')
-    let tickerList = foundPlans.filter(t => t.patternClassification !== undefined).map(t => t.tickerSymbol)
-    const fullWatchlistSymbols = await Stock.find({ Symbol: { $in: tickerList }, HasOptions: true });
-    if (fullWatchlistSymbols.length === 0) return console.log(`No current plans need options update....`)
-
-
-    console.log(`🌙 Initializing Throttled Options Pass for ${fullWatchlistSymbols.length} assets...`);
-    const targetedBatches = chunkArray(fullWatchlistSymbols, 20);
-
-    for (const activeBatch of targetedBatches)
-    {
-        try
-        {
-            const tickerActiveBatch = activeBatch.map((t) => t.Symbol)
-            console.log(`🚀 Dispatching Throttled Sub-Batch Query for: [${tickerActiveBatch.join(', ')}]`);
-            const snapShots = await alpaca.getSnapshots(tickerActiveBatch)
-            const batchContractsResult = await fetchBatchWeeklyOptionsContracts(tickerActiveBatch, snapShots);
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-        } catch (subBatchError)
-        {
-            console.error(`❌ Ingestion Failure inside active batch:`, subBatchError);
-        }
-    }
-}
-
 async function updateChannelAbsorbWindow()
 {
     const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
@@ -448,7 +528,6 @@ async function updateChannelAbsorbWindow()
         }
     }
 }
-
 async function updateRetailVsInstitutional()
 {
     const foundPlans = await EnterExitPlannedStock.find({ patternClassification: 'channel' }).select('tickerSymbol channelPattern')
@@ -523,86 +602,6 @@ async function updateRetailVsInstitutional()
         }
     }
 }
-
-
-async function updateOpenCrosses()
-{
-    const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol openCrossMetrics')
-
-
-    let startDate = new Date()
-    let endDate = new Date()
-    if (isWeekend(startDate))
-    {
-        startDate = previousFriday(new Date())
-        endDate = previousFriday(new Date())
-    }
-    startDate.setHours(9, 30, 0, 0)
-    endDate.setHours(9, 31, 0, 0)
-
-    // Split your massive list into safe 50-ticker sub-arrays
-    const batches = chunkArray(foundPlans, 50);
-    // Sequential loop through chunks to protect API rate limits
-    for (const [index, batch] of batches.entries())
-    {
-        try
-        {
-            const onlyTickersFromBatch = foundPlans.map(t => t.tickerSymbol)
-            const fiveMinCandles = await alpaca.getMultiTradesV2(onlyTickersFromBatch, { start: startDate, end: endDate })
-
-            const bulkOperations = [];
-            // Map over the chunk keys to perform calculations
-            for (const stock of batch)
-            {
-                const fiveMinCandleData = fiveMinCandles.get(stock.tickerSymbol)
-                if (!fiveMinCandleData || fiveMinCandleData.length === 0) continue
-
-                const openCrossResults = reviewOpeningMinuteTape(fiveMinCandleData)
-
-                let copyArray = [...stock.openCrossMetrics.previousOpenCross]
-
-                const crossMetrics = {
-                    date: startDate,
-                    officialAuctionCrossPrice: openCrossResults.officialAuctionCrossPrice,
-                    maximumBlockSizeFound: openCrossResults.maximumBlockSizeFound
-                }
-
-
-                const results = processMultiDayCrossTrend(crossMetrics, copyArray)
-
-                bulkOperations.push({
-                    updateOne: {
-                        filter: { _id: stock._id },
-                        update: {
-                            $set: {
-                                openCrossMetrics: {
-                                    previousOpenCross: results.updatedHistoryLogs,
-                                    todaysOpenCross: crossMetrics,
-                                    sixDayBias: { ...results }
-                                }
-                            }
-                        }
-                    }
-                });
-
-            }
-
-            if (bulkOperations.length > 0)
-            {
-                const result = await EnterExitPlannedStock.bulkWrite(bulkOperations);
-                console.log(`Successfully updated database for batch ${index + 1} of Open Cross Metrics. Modified: ${result.upsertedCount + result.modifiedCount}`);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-        } catch (batchError)
-        {
-            console.error(`Error encountered processing batch ${index + 1}:`, batchError.message);
-            // Script continues to next batch safely instead of crashing completely
-        }
-    }
-}
-
 async function updateHiddenTrades()
 {
     const foundPlans = await EnterExitPlannedStock.find().select('tickerSymbol dateAdded relevantCandleDate plan patternClassification cascadePattern channelPattern continuationPattern')
@@ -708,22 +707,22 @@ function initScheduler()
     // updateMorningMetricsPreOpen()
     // updateOpenCrosses()
     // updateHiddenTrades()
+
+    //Pre-Market Scheduled Tasks
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })
-
     cron.schedule('25 9 * * *', () => { if (!isWeekend(new Date())) updateHighImportanceAndTradeMorningMetrics() })
-
-    cron.schedule('32 9 * * *', () => { if (!isWeekend(new Date())) updateOpenCrosses() })
-
     cron.schedule('26 9 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
-    cron.schedule('05 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
+    //Mid-Day Scheduled Tasks
+    cron.schedule('32 9 * * *', () => { if (!isWeekend(new Date())) updateOpenCrosses() })
+    cron.schedule('5 13 * * *', () => { if (!isWeekend(new Date())) updateOptionsContractInformation() })
 
-    cron.schedule('0 16 * * *', () => { if (!isWeekend(new Date())) updateChannelAbsorbWindow() })
+    //Post Close Scheduled Tasks
+    cron.schedule('5 16 * * *', () => { if (!isWeekend(new Date())) updateChannelAbsorbWindow() })
     cron.schedule('10 16 * * *', () => { if (!isWeekend(new Date())) updateRetailVsInstitutional() })
-    cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
-    cron.schedule('30 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
-
-    cron.schedule('0 17 * * *', () => { if (!isWeekend(new Date())) updateHiddenTrades() })
+    cron.schedule('15 16 * * *', () => { if (!isWeekend(new Date())) updateDailyValuesPostClose() })
+    cron.schedule('20 16 * * *', () => { if (!isWeekend(new Date())) executeNightlyVolumeProfilePass() })
+    cron.schedule('25 16 * * *', () => { if (!isWeekend(new Date())) updateHiddenTrades() })
 }
 
 module.exports = { initScheduler };

@@ -18,8 +18,15 @@ router.route("/today/bars/regularSession/minute")
 router.route("/today/trades")
     .get(EngineController.fetchTradeEngineData);
 
+
+router.route('/today/morning')
+    .get(EngineController.fetchMorningData)
 router.route('/today/openCross')
     .get(EngineController.fetchOpeningCrossData)
+router.route('/today/midDay')
+    .get(EngineController.fetchMiddayData)
+router.route('/today/postClose')
+    .get(EngineController.fetchPostCloseData)
 
 
 
