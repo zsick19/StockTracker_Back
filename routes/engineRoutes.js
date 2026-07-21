@@ -27,6 +27,9 @@ router.route('/today/openCross')
 router.route("/deepDiscount")
     .post(DeepDiscountController.initiateLiveQuoteAndFetchDailyData);
 
+router.route('/deedDiscount/trades')
+    .get(DeepDiscountController.fetchPastMinsOfTrades)
+
 router.route("/deedDiscount/remove")
     .post(DeepDiscountController.clearLiveQuoteDeepDiscount)
 
@@ -36,5 +39,10 @@ router.route("/deepDiscount/planAlerts")
 
 router.route("/deepDiscount/planAlerts/reviewed")
     .get(DeepDiscountController.markPlanFullyDeepDiscountReviewed)
+
+router.route("/exitAlert")
+    .post(DeepDiscountController.createOrUpdateExitAlertToPlan)
+    .delete(DeepDiscountController.removeExitAlertFromPlan)
+
 
 module.exports = router;

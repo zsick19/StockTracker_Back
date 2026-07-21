@@ -82,6 +82,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
     stockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock" },
     sector: { type: String },
     plan: {
+        exitAlertPrice: Number,
         enterBufferPrice: Number,
         enterPrice: Number,
         stopLossPrice: Number,

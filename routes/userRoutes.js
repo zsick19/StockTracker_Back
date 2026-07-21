@@ -6,6 +6,8 @@ const WatchListController = require("../controllers/WatchListController");
 router.route("/login")
     .get(UserController.userLoginDataFetch);
 
+router.route('/dailyTask')
+    .get(UserController.toggleDailyTaskStatus)
 
 router.route('/streamRefresh')
     .get(UserController.refreshUsersStreamingTickers)

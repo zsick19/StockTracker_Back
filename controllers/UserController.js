@@ -12,7 +12,7 @@ const AccountPL = require('../models/AccountPL')
 const MacroChartedStock = require('../models/MacroChartedStock');
 const { isWeekend, previousFriday, previousThursday, subBusinessDays } = require("date-fns");
 const Stock = require("../models/Stock");
-
+const SPYGammaLog = require('../models/SPYGammaLog')
 
 const alpaca = new Alpaca({ keyId: process.env.ALPACA_API_KEY, secretKey: process.env.ALPACA_API_SECRET });
 
@@ -35,10 +35,41 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 
 
 
-
-
   res.json(foundUser);
 });
+
+const toggleDailyTaskStatus = asyncHandler(async (req, res) =>
+{
+  const { session, taskId } = req.query
+  if (!req.userId || !session || !taskId) return res.status(400).send("Missing Information");
+
+  try
+  {
+    const foundUser = await User.findById(req.userId)
+
+
+    let updateStatus = foundUser.dailyTasks[session].map((t, i) =>
+    {
+      let update = t
+      if (t._id.toString() === taskId && update?.status) update.status = undefined
+      else if (t._id.toString() === taskId) update.status = new Date()
+      return update
+    })
+
+    foundUser.dailyTasks[session] = updateStatus
+
+    foundUser.markModified(`dailyTasks.${session}`);
+
+    await foundUser.save()
+
+    res.json({ session, taskId, status: new Date() })
+
+  } catch (error)
+  {
+    res.status(500).json({ m: 'error updating task' })
+  }
+})
+
 const refreshUsersStreamingTickers = asyncHandler(async (req, res) =>
 {
   if (!req.userId) return res.status(400).send('Missing Information')
@@ -48,7 +79,6 @@ const refreshUsersStreamingTickers = asyncHandler(async (req, res) =>
   }
   sendRabbitMessage(req, res, rabbitQueueNames.userLoggingInQueueName, taskData)
   res.json({ m: 'refreshed' })
-
 })
 
 
@@ -310,6 +340,7 @@ const resetUser = asyncHandler(async (req, res) =>
 module.exports = {
   userLoginDataFetch,
   fetchAccountPL,
+  toggleDailyTaskStatus,
   updateAccountRiskThreshold,
   fetchUserMacroWatchListsWithTickerData,
   recordUsersMostRecentMarketPageSearch,
