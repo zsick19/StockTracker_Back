@@ -146,6 +146,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         backTests: [backTestedLedgerSchema],
         averages: backTestedAverageSchema
     },
+    dateBackTestLastCalculated:Date,
     deepDiscounts: {
         dateReviewed: Date,
         aboveStopLoss: {
