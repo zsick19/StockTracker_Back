@@ -272,7 +272,7 @@ const fetchMorningData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId)
-        .populate('planAndTrackedStocks', 'tickerSymbol optionsExpectedMoves dateOptionsEMLastCalculated extentProb morningMetrics morningVolumeMetrics extremeProbByFiveMin volumeDistributionMetrics dateMorningMetricsLastCalculated')
+        .populate('planAndTrackedStocks', 'tickerSymbol optionsExpectedMoves dateOptionsEMLastCalculated dateMorningMetricsLastCalculated dateOptionsEMLastCalculated extentProb morningMetrics morningVolumeMetrics extremeProbByFiveMin volumeDistributionMetrics dateMorningMetricsLastCalculated')
         .select('planAndTrackedStocks -_id');
 
     if (!foundUser) res.status(404).json({ message: 'User not found.' })

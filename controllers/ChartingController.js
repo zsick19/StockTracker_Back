@@ -50,6 +50,7 @@ const updateMacroChartPerChartId = asyncHandler(async (req, res) =>
 {
   const { macroChartId } = req.params;
   const chartingUpdate = req.body
+
   const foundMacroStock = await MacroChartedStock.findById(macroChartId)
   if (!foundMacroStock) return res.status(404)
   foundMacroStock.charting = chartingUpdate
@@ -232,6 +233,7 @@ const updateDailyExpectedMoves = asyncHandler(async (req, res) =>
 
   if (!expectedMoves) return res.status(400).json({ message: 'Missing Expected Moves Data' })
 
+  console.log(expectedMoves)
   let nonBarTickers = ['DJX', 'NDX', 'SPX', 'XSP']
 
   for (const move of expectedMoves)

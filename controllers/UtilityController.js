@@ -5,6 +5,7 @@ const fs = require('fs')
 const csv = require('csv-parser')
 const pdf = require('pdf-parse');
 const User = require("../models/User");
+const MacroChartedStock = require("../models/MacroChartedStock");
 
 
 
@@ -21,6 +22,7 @@ const parseCleanDate = (dateString) =>
     return isNaN(dateObj.getTime()) ? null : dateObj;
 };
 
+const cleanNum = (val, fallback = 0) => (Number.isNaN(Number(val)) ? fallback : Number(val));
 
 
 const uploadStockCSVFile = asyncHandler(async (req, res) =>
@@ -116,30 +118,28 @@ const uploadStockCSVFile = asyncHandler(async (req, res) =>
 
 const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
 {
+    const { timePeriod } = req.query
+    if (!timePeriod) return res.status(400).json({ error: 'Internal server error.' });
+
     try
     {
-        if (!req.file)
-        {
-            return res.status(400).json({ error: 'No file uploaded.' });
-        }
-        // console.log(req.file)
-        // Convert file buffer to string
+        if (!req.file) { return res.status(400).json({ error: 'No file uploaded.' }); }
+
         const fileContent = req.file.buffer.toString('utf-8');
 
-        // Split text by semicolon to separate each ticker entry
         const entries = fileContent.split(';');
         const parsedData = [];
 
         for (let entry of entries)
         {
             const cleanEntry = entry.trim();
-            if (!cleanEntry) continue; // Skip trailing empty entries
-
-            // Split the entry by commas
+            if (!cleanEntry) continue; 
             const parts = cleanEntry.split(',');
 
             if (parts.length === 5)
             {
+                let std = ((parseFloat(parts[1]) - parseFloat(parts[2])) / 2)
+                let priorClose = parseFloat(parts[1])
                 parsedData.push({
                     ticker: parts[0].trim(),
                     std1High: parseFloat(parts[1]),
@@ -147,18 +147,51 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
                     std2High: parseFloat(parts[3]),
                     std2Low: parseFloat(parts[4]),
                     std: parseFloat(((parseFloat(parts[1]) - parseFloat(parts[2])) / 2).toFixed(2)),
-                    priorClose: parseFloat(parts[1]) - ((parseFloat(parts[1]) - parseFloat(parts[2])) / 2)
+                    priorClose: priorClose - std
                 });
             }
         }
-        console.log('Save this info to db some how')
 
-        // Return parsed JSON structure back to frontend
-        return res.status(200).json({
-            message: 'File processed successfully',
-            count: parsedData.length,
-            data: parsedData
-        });
+        const bulkOperations = parsedData.map((t, i) =>
+        {
+            if (timePeriod === 'DAILY') return {
+                updateOne: {
+                    filter: { tickerSymbol: t.ticker },
+                    update: {
+                        $set: {
+                            dailyEM: {
+                                iVolDailyEMLower: cleanNum(t.std1Low),
+                                iVolDailyEMUpper: cleanNum(t.std1High),
+                                std2High: cleanNum(t.std2High),
+                                std2Low: cleanNum(t.std2Low),
+                                lastUpdated: new Date()
+                            },
+                            standardDeviation: {
+                                sigma: cleanNum(t.std),
+                                close: cleanNum(parseFloat(t.priorClose.toFixed(2)))
+                            },
+                        }
+                    }
+                }
+            }
+            else if (timePeriod === 'WEEKLY') return {
+
+            }
+            else if (timePeriod === 'MONTHLY') return {
+
+            }
+            else if (timePeriod === 'QUARTERLY') return {
+
+            }
+        })
+
+        if (bulkOperations.length > 0)
+        {
+            const result = await MacroChartedStock.bulkWrite(bulkOperations);
+            console.log(`Successfully updated database of Macro Charted Stocks. Modified: ${result.modifiedCount}`);
+        }
+
+        return res.json({ success: true, recordsProcessed: bulkOperations.length, expectedMovesData: parsedData });
 
     } catch (error)
     {
@@ -211,18 +244,44 @@ const uploadZoneFile = asyncHandler(async (req, res) =>
                 });
             }
         }
-        console.log("Do something with uploading zone documents")
 
-        return res.status(200).json({
-            message: 'PDF processed successfully',
-            count: parsedObjects.length,
-            data: parsedObjects
-        });
+
+        const bulkOperations = parsedObjects.map((t, i) =>
+        {
+            return {
+                updateOne: {
+                    filter: { tickerSymbol: t.symbol },
+                    update: {
+                        $set: {
+                            dailyZone: {
+                                low: cleanNum(t.low),
+                                mid: cleanNum(t.mid),
+                                high: cleanNum(t.high),
+                                close: cleanNum(t.close),
+                                upside: cleanNum(t.upside),
+                                downside: cleanNum(t.downside),
+                                range: cleanNum(t.range),
+                                trend: cleanNum(t.trend)
+                            }
+                        },
+                        upsert: false
+                    }
+                }
+            }
+        })
+
+        if (bulkOperations.length > 0)
+        {
+            const result = await MacroChartedStock.bulkWrite(bulkOperations);
+            console.log(`Successfully updated database of Macro Zone Data. Modified: ${result.modifiedCount}`);
+        }
+
+        return res.json({ success: true, recordsProcessed: bulkOperations.length, zoneData: parsedObjects });
 
     } catch (error)
     {
         console.error('PDF Processing Error:', error);
-        return res.status(500).json({ error: 'Failed to process PDF file.' });
+        return res.status(500).json({ error: 'Failed to process zone PDF file.' });
     }
 
 })

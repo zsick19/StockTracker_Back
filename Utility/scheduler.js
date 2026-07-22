@@ -706,7 +706,8 @@ function initScheduler()
 
     // updateMorningMetricsPreOpen()
     // updateOpenCrosses()
-    // updateHiddenTrades()
+    updateHiddenTrades()
+    updateDailyValuesPostClose()
 
     //Pre-Market Scheduled Tasks
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })

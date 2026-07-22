@@ -89,8 +89,7 @@ const fetchPastMinsOfTrades = asyncHandler(async (req, res) =>
             const quoteData = []
             for await (let singleCandle of qData) { quoteData.push(singleCandle) }
 
-            // const tickerData = tradeData.get(ticker)
-            console.log(new Date(startMin).toTimeString(), new Date(quoteSubMin).toTimeString())
+
 
             res.json({ trades: tickerData, quotes: quoteData })
         })
