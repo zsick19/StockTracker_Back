@@ -8,7 +8,10 @@ function reviewOpeningMinuteTape(rawTradeData)
     if (rawTradeData.length === 0)
     {
         console.log("❌ No trade data returned for this time window. Verify date or symbol.");
-        return;
+        return {
+            officialAuctionCrossPrice: 0,
+            maximumBlockSizeFound: 0
+        }
     }
 
     let officialAuctionCrossPrice = 0;
@@ -37,7 +40,7 @@ function reviewOpeningMinuteTape(rawTradeData)
 
     return {
         officialAuctionCrossPrice: parseFloat(officialAuctionCrossPrice.toFixed(2)),
-        maximumBlockSizeFound: parseFloat( maximumBlockSizeFound.toLocaleString())
+        maximumBlockSizeFound: parseFloat(maximumBlockSizeFound.toLocaleString())
     }
 }
 

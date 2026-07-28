@@ -82,8 +82,10 @@ const stockDataFetchByDate = asyncHandler(async (req, res) =>
   // let tickerInfo
   // if (tickerInfoNeeded) { tickerInfo = await Stock.findOne({ Symbol: ticker }) }
 
-
-  let timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN);
+  let timeframeForAlpaca
+  if (timeFrame?.unitOfIncrement && timeFrame.unitOfIncrement === 'D') { timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.DAY); }
+  else if (timeFrame?.unitOfIncrement && timeFrame.unitOfIncrement === 'M') { timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN); }
+  else { timeframeForAlpaca = alpaca.newTimeframe(timeFrame.increment, alpaca.timeframeUnit.MIN); }
 
 
 

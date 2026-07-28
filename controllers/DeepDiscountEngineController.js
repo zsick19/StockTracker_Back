@@ -83,13 +83,10 @@ const fetchPastMinsOfTrades = asyncHandler(async (req, res) =>
                 alpaca.getQuotesV2(ticker, { start: quoteSubMin, end: end })]
             )
 
-            // const tradeData = await alpaca.getTradesV2(ticker, { start: startMin })
             const tickerData = []
             for await (let singleCandle of tData) { tickerData.push(singleCandle) }
             const quoteData = []
             for await (let singleCandle of qData) { quoteData.push(singleCandle) }
-
-
 
             res.json({ trades: tickerData, quotes: quoteData })
         })
@@ -141,11 +138,10 @@ const removeDeepDiscountAlertFromPlan = asyncHandler(async (req, res) =>
     const foundPlan = await EnterExitPlannedStock.findById(planId)
     if (!foundPlan) return res.status(404).send('Record Not Found')
 
-
     switch (discountToRemove)
     {
-        case 1: foundPlan.deepDiscounts.belowStopLoss = undefined; break;
-        case 2: foundPlan.deepDiscounts.aboveStopLoss = undefined; break;
+        case 1: foundPlan.deepDiscounts.aboveStopLoss = undefined; break;
+        case 2: foundPlan.deepDiscounts.belowStopLoss = undefined; break;
         case 3: foundPlan.deepDiscounts.aboveMaxPain = undefined; break;
     }
 

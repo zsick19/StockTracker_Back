@@ -6,6 +6,9 @@ const csv = require('csv-parser')
 const pdf = require('pdf-parse');
 const User = require("../models/User");
 const MacroChartedStock = require("../models/MacroChartedStock");
+const { getDay } = require("date-fns/getDay");
+const { nextMonday } = require("date-fns/nextMonday");
+const { isMonday } = require("date-fns/isMonday");
 
 
 
@@ -118,8 +121,8 @@ const uploadStockCSVFile = asyncHandler(async (req, res) =>
 
 const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
 {
-    const { timePeriod } = req.query
-    if (!timePeriod) return res.status(400).json({ error: 'Internal server error.' });
+    const { timePeriod, source } = req.query
+    if (!timePeriod || !source) return res.status(400).json({ error: 'Internal server error.' });
 
     try
     {
@@ -133,7 +136,7 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
         for (let entry of entries)
         {
             const cleanEntry = entry.trim();
-            if (!cleanEntry) continue; 
+            if (!cleanEntry) continue;
             const parts = cleanEntry.split(',');
 
             if (parts.length === 5)
@@ -154,28 +157,98 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
 
         const bulkOperations = parsedData.map((t, i) =>
         {
-            if (timePeriod === 'DAILY') return {
-                updateOne: {
-                    filter: { tickerSymbol: t.ticker },
-                    update: {
-                        $set: {
-                            dailyEM: {
-                                iVolDailyEMLower: cleanNum(t.std1Low),
-                                iVolDailyEMUpper: cleanNum(t.std1High),
-                                std2High: cleanNum(t.std2High),
-                                std2Low: cleanNum(t.std2Low),
-                                lastUpdated: new Date()
-                            },
-                            standardDeviation: {
-                                sigma: cleanNum(t.std),
-                                close: cleanNum(parseFloat(t.priorClose.toFixed(2)))
-                            },
+            if (timePeriod === 'DAILY')
+            {
+                if (source === 'asher') return {
+                    updateOne: {
+                        filter: { tickerSymbol: t.ticker },
+                        update: {
+                            $set: {
+                                dailyEM: {
+                                    iVolDailyEMLower: cleanNum(t.std1Low),
+                                    iVolDailyEMUpper: cleanNum(t.std1High),
+                                    std2High: cleanNum(t.std2High),
+                                    std2Low: cleanNum(t.std2Low),
+                                    lastUpdated: new Date()
+                                }
+                            }
                         }
                     }
                 }
-            }
-            else if (timePeriod === 'WEEKLY') return {
+                else return {
+                    updateOne: {
+                        filter: { tickerSymbol: t.ticker },
+                        update: {
+                            $set: {
+                                "dailyEM.dailyEMLower": cleanNum(t.std1Low),
+                                "dailyEM.dailyEMUpper": cleanNum(t.std1High),
+                                "dailyEM.lastUpdated": new Date(),
+                                standardDeviation: {
+                                    sigma: cleanNum(t.std),
+                                    close: cleanNum(parseFloat(t.priorClose.toFixed(2)))
+                                }
+                            }
+                        }
+                    }
+                }
 
+            }
+            else if (timePeriod === 'WEEKLY')
+            {
+                if (source === 'asher')
+                {
+                    let isTodayMonday = isMonday(new Date()) ? new Date() : nextMonday(new Date())
+                    const FIVE_DAYS_MS = 5 * 24 * 60 * 60 * 1000;
+                    return {
+                        updateOne: {
+                            filter: { tickerSymbol: t.ticker },
+                            update: [
+                                {
+                                    $set: {
+                                        "weeklyEM.previousWeeklyEM": {
+                                            $cond: {
+                                                if: {
+                                                    $lt: [
+                                                        "$weeklyEM.lastUpdated",
+                                                        { $subtract: ["$$NOW", FIVE_DAYS_MS] }
+                                                    ]
+                                                },
+                                                then: {
+                                                    $concatArrays: [
+                                                        { $ifNull: ["$weeklyEM.previousWeeklyEM", []] },
+                                                        [{
+                                                            lower: cleanNum(t.std1Low),
+                                                            upper: cleanNum(t.std1High),
+                                                            startDate: isTodayMonday
+                                                        }]]
+                                                },
+                                                else: "$weeklyEM.previousWeeklyEM"
+                                            }
+                                        }
+                                    }
+                                },
+                                {
+                                    $set: {
+                                        'weeklyEM.iVolWeeklyEMLower': cleanNum(t.std1Low),
+                                        'weeklyEM.iVolWeeklyEMUpper': cleanNum(t.std1High),
+                                        'weeklyEM.lastUpdated': new Date()
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+                else return {
+                    updateOne: {
+                        filter: { tickerSymbol: t.ticker },
+                        update: {
+                            $set: {
+                                "weeklyEM.sigma": cleanNum(t.std),
+                                "weeklyEM.weeklyClose": cleanNum(parseFloat(t.priorClose.toFixed(2)))
+                            }
+                        }
+                    }
+                }
             }
             else if (timePeriod === 'MONTHLY') return {
 
@@ -190,8 +263,8 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
             const result = await MacroChartedStock.bulkWrite(bulkOperations);
             console.log(`Successfully updated database of Macro Charted Stocks. Modified: ${result.modifiedCount}`);
         }
-
         return res.json({ success: true, recordsProcessed: bulkOperations.length, expectedMovesData: parsedData });
+
 
     } catch (error)
     {

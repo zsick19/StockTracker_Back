@@ -218,7 +218,7 @@ async function updateOpenCrosses()
             for (const stock of batch)
             {
                 const fiveMinCandleData = fiveMinCandles.get(stock.tickerSymbol)
-                if (!fiveMinCandleData || fiveMinCandleData.length === 0) continue
+                // if (!fiveMinCandleData || fiveMinCandleData.length === 0) continue
 
                 const openCrossResults = reviewOpeningMinuteTape(fiveMinCandleData)
 
@@ -706,8 +706,8 @@ function initScheduler()
 
     // updateMorningMetricsPreOpen()
     // updateOpenCrosses()
-    updateHiddenTrades()
-    updateDailyValuesPostClose()
+    // updateHiddenTrades()
+    // updateDailyValuesPostClose()
 
     //Pre-Market Scheduled Tasks
     cron.schedule('20 9 * * *', () => { if (!isWeekend(new Date())) updateMorningMetricsPreOpen() })

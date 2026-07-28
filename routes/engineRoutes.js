@@ -6,6 +6,9 @@ const DeepDiscountController = require('../controllers/DeepDiscountEngineControl
 router.route("/historical")
     .get(EngineController.fetchHistoricalEngineData);
 
+router.route('/planRefresh')
+    .get(EngineController.fetchUpdatedPlanData)
+
 router.route("/today/bars/openingSession")
     .get(EngineController.fetchTodaysOpenEngineData);
 

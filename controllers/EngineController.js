@@ -215,8 +215,9 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
             for await (let singleStock of tickerData)
             {
                 if (macroAndSectorTickers.includes(singleStock[0])) macroCandleData[singleStock[0]] = singleStock[1]
-                else candleData[singleStock[0]] = singleStock[1]
+                else { candleData[singleStock[0]] = singleStock[1] }
             }
+
             res.json({ planData: candleData, macroData: macroCandleData });
         })
     } catch (error)
@@ -226,6 +227,82 @@ const fetchTodaysRegularOneMinEngineData = asyncHandler(async (req, res) =>
     }
 })
 
+const fetchUpdatedPlanData = asyncHandler(async (req, res) =>
+{
+    if (!req.userId) return res.status(400).send("missing information");
+    const foundUser = await User.findById(req.userId)
+        .populate({ path: 'planAndTrackedStocks', populate: { path: 'stockId' } })
+        .select('planAndTrackedStocks -_id');
+
+    if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
+    const fiveMinTickers = []
+    const oneMinTickers = []
+    const allPlans = []
+    foundUser.planAndTrackedStocks.forEach((t) =>
+    {
+        allPlans.push(t.tickerSymbol)
+        if (t?.maintainLiveCandles) oneMinTickers.push(t.tickerSymbol)
+        else { fiveMinTickers.push(t.tickerSymbol) }
+    })
+
+
+
+    let todayStart = set(new Date(), { hours: 0, minutes: 0, milliseconds: 0 })
+    let startMin = subMinutes(new Date(), 2)
+    if (isWeekend(todayStart)) { todayStart = previousFriday(new Date()) }
+
+    const startDate = subBusinessDays(todayStart, 10)
+    const threeDayStart = subBusinessDays(todayStart, 3)
+    const yesterday = todayStart
+
+    try
+    {
+        await retryOperation(async () =>
+        {
+            const snapShots = await alpaca.getSnapshots(allPlans)
+            let oneMinData
+            let oneMinTradesData
+            let todayOneMinData
+            let fiveMinData
+            let jsonCompatible = {}
+            const candleData = {}
+            const todayCandleData = {}
+
+            if (oneMinTickers.length > 0)
+            {
+                [oneMinTradesData, oneMinData, todayOneMinData] = await Promise.all([
+                    alpaca.getMultiTradesV2(oneMinTickers, { start: startMin }),
+                    alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: threeDayStart, end: yesterday }),
+                    alpaca.getMultiBarsV2(oneMinTickers, { timeframe: alpaca.newTimeframe(1, alpaca.timeframeUnit.MIN), start: yesterday }),
+                ])
+                for await (let singleStock of oneMinData) { candleData[singleStock[0]] = singleStock[1] }
+                for await (let singleStock of todayOneMinData) { todayCandleData[singleStock[0]] = singleStock[1] }
+                jsonCompatible = Object.fromEntries(oneMinTradesData)
+            }
+
+            if (fiveMinTickers.length > 0)
+            {
+                fiveMinData = await alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate, end: yesterday })
+                for await (let singleStock of fiveMinData) { candleData[singleStock[0]] = singleStock[1] }
+                fiveMinCurrentDayData = await alpaca.getMultiBarsV2(fiveMinTickers, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: yesterday })
+                for await (let singleStock of fiveMinCurrentDayData) { todayCandleData[singleStock[0]] = singleStock[1] }
+            }
+
+            let plansResults = foundUser.planAndTrackedStocks.map((t) =>
+            {
+                let singleSnap = snapShots.find(ss => ss.symbol === t.tickerSymbol)
+                return { plan: t, candleData: candleData[t.tickerSymbol], todayCandleData: todayCandleData[t.tickerSymbol], snapShot: singleSnap, tradeData: jsonCompatible[t.tickerSymbol] }
+            })
+
+            res.json({ plans: plansResults });
+        })
+    } catch (error)
+    {
+        console.error('Error fetching data:', error);
+        res.status(500).json({ message: 'error requesting stock data' })
+    }
+})
 
 const fetchTradeEngineData = asyncHandler(async (req, res) =>
 {
@@ -306,6 +383,7 @@ module.exports = {
     fetchTodaysRegularEngineData,
     fetchTodaysRegularOneMinEngineData,
     fetchTradeEngineData,
+    fetchUpdatedPlanData,
     fetchMorningData,
     fetchOpeningCrossData,
     fetchMiddayData,
