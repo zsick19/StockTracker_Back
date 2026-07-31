@@ -164,13 +164,11 @@ const uploadExpectedMovesCoreFile = asyncHandler(async (req, res) =>
                         filter: { tickerSymbol: t.ticker },
                         update: {
                             $set: {
-                                dailyEM: {
-                                    iVolDailyEMLower: cleanNum(t.std1Low),
-                                    iVolDailyEMUpper: cleanNum(t.std1High),
-                                    std2High: cleanNum(t.std2High),
-                                    std2Low: cleanNum(t.std2Low),
-                                    lastUpdated: new Date()
-                                }
+                                "dailyEM.iVolDailyEMLower": cleanNum(t.std1Low),
+                                "dailyEM.iVolDailyEMUpper": cleanNum(t.std1High),
+                                "dailyEM.std2High": cleanNum(t.std2High),
+                                "dailyEM.std2Low": cleanNum(t.std2Low),
+                                "dailyEM.lastUpdated": new Date()
                             }
                         }
                     }

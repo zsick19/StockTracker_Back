@@ -11,4 +11,9 @@ router.route("/macro")
 
 router.route('/activeTrades')
     .get(NewsFeedController.fetchUsersActiveTradeNews)
+
+
+
+
+    
 module.exports = router;

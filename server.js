@@ -50,6 +50,7 @@ app.use("/patterns", require("./routes/patternRoutes"));
 app.use("/enterExitPlan", require("./routes/enterExitPlanRoutes"))
 app.use("/trades", require("./routes/tradeRoutes"))
 app.use("/news", require('./routes/newsFeedRoutes'))
+app.use('/macroCalendar', require('./routes/calendarEventRoutes'))
 app.use('/alerts', require('./routes/alertRoutes'))
 app.use('/util', require('./routes/utilityRoutes'))
 
