@@ -117,6 +117,98 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 })
 
 
+const manageTradeRecord = asyncHandler(async (req, res) =>
+{
+  const { tickerSymbol, recordType, positionSize, purchasePrice, enterExitPlanId } = req.body
+  console.log(req.body)
+  if (!tickerSymbol || !recordType || !positionSize || !purchasePrice || !enterExitPlanId) return res.status(400).send('Missing Required Information')
+
+  const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
+
+
+
+  if (foundTradeRecord && foundTradeRecord.availableShares !== 0)
+  {
+    if (recordType === 'purchase')
+    {
+      foundTradeRecord.purchaseRecords.push({ positionSize, purchasePrice, purchaseDate: new Date() })
+      foundTradeRecord.markModified('purchaseRecords')
+
+      let totalPrice = 0
+      let totalShares = 0
+      foundTradeRecord.purchaseRecords.forEach((t) => { totalPrice += t.purchasePrice; totalShares += t.positionSize })
+      foundTradeRecord.averagePurchasePrice = totalPrice / totalShares
+      foundTradeRecord.availableShares = foundTradeRecord.availableShares + positionSize
+      await foundTradeRecord.save()
+
+      return res.json({ updatedTrade: foundTradeRecord })
+    } else
+    {
+      foundTradeRecord.sellRecords.push({ sellSize: positionSize, sellPrice: purchasePrice, sellDate: new Date() })
+      foundTradeRecord.markModified('sellRecords')
+
+      let remainingShares = foundTradeRecord.availableShares - positionSize
+      if (remainingShares === 0)
+      {
+        let totalPrice = 0
+        let totalShares = 0
+        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += t.sellPrice; totalShares += t.sellSize })
+        foundTradeRecord.averageSellPrice = totalPrice / totalShares
+        foundTradeRecord.availableShares = 0
+        await foundTradeRecord.save()
+
+        const foundUserUpdate = await User.findByIdAndUpdate(req.userId, { $pull: { activeTradeRecords: foundTradeRecord._id }, $push: { previousTradeRecords: foundTradeRecord._id } })
+
+        return res.json({ closedTrade: foundTradeRecord })
+      }
+      else
+      {
+        let totalPrice = 0
+        let totalShares = 0
+        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += t.sellPrice; totalShares += t.sellSize })
+        foundTradeRecord.averageSellPrice = totalPrice / totalShares
+        foundTradeRecord.availableShares = remainingShares
+        await foundTradeRecord.save()
+
+        return res.json({ updatedTrade: foundTradeRecord })
+      }
+    }
+  }
+
+  if (!foundTradeRecord || (foundTradeRecord && foundTradeRecord.availableShares === 0))
+  {
+    try
+    {
+
+      const createdTradeRecord = await TradeRecord.create({
+        tickerSymbol,
+        enterExitPlanId,
+        userId: req.userId,
+        purchaseRecords: [{ positionSize, purchasePrice, purchaseDate: new Date() }],
+        sellRecords: [],
+        availableShares: positionSize,
+        averagePurchasePrice: purchasePrice,
+        enterDate: new Date()
+      })
+
+      if (createdTradeRecord)
+      {
+        const foundEnterExitPlanUpdate = await EnterExitPlannedStock.findByIdAndUpdate({ _id: enterExitPlanId }, { activeTradeId: createdTradeRecord._id })
+        const foundUserUpdate = await User.findByIdAndUpdate({ _id: req.userId }, { $push: { activeTradeRecords: createdTradeRecord._id } })
+        return res.json({ updatedTrade: createdTradeRecord })
+      } else { throw new Error('New trade record never created.') }
+    }
+    catch (error)
+    {
+      return res.status(500).json(error)
+    }
+
+
+  }
+})
+
+
+
 
 
 const createTradeRecord = asyncHandler(async (req, res) =>
@@ -195,7 +287,15 @@ const createTradeRecord = asyncHandler(async (req, res) =>
     res.json(createdTradeRecord)
   } else
     res.status(500).json({ message: 'Error creating trade' })
+
 })
+
+
+
+
+
+
+
 
 const alterTradeRecord = asyncHandler(async (req, res) =>
 {
@@ -327,6 +427,7 @@ const updateTradeRecordInfo = asyncHandler(async (req, res) =>
 })
 
 module.exports = {
+  manageTradeRecord,
   fetchUsersActiveTrades,
   fetchUsersActiveTradeGraphs,
   createTradeRecord,

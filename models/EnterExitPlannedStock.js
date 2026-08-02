@@ -80,6 +80,7 @@ const backTestedAverageSchema = new mongoose.Schema({
 const enterExitPlannedStockSchema = new mongoose.Schema({
     tickerSymbol: { type: String, required: true },
     stockId: { type: mongoose.Schema.Types.ObjectId, ref: "Stock" },
+    activeTradeId: { type: mongoose.Schema.Types.ObjectId, ref: "TradeRecord", default: null },
     sector: { type: String },
     plan: {
         exitAlertPrice: Number,
@@ -94,6 +95,10 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         percents: [Number],
         dateCreated: Date
     },
+
+
+
+
     relevantCandleDate: Date,
     highImportance: Date,
     updateNeededDate: Date,
@@ -146,7 +151,7 @@ const enterExitPlannedStockSchema = new mongoose.Schema({
         backTests: [backTestedLedgerSchema],
         averages: backTestedAverageSchema
     },
-    dateBackTestLastCalculated:Date,
+    dateBackTestLastCalculated: Date,
     deepDiscounts: {
         dateReviewed: Date,
         aboveStopLoss: {

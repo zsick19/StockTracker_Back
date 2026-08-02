@@ -14,10 +14,11 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 {
     if (!req.userId) return res.status(400).send("missing information");
     const foundUser = await User.findById(req.userId)
-        .populate({ path: 'planAndTrackedStocks', populate: { path: 'stockId' } })
+        .populate({ path: 'planAndTrackedStocks', populate: { path: 'stockId activeTradeId' } })
         .select('planAndTrackedStocks -_id');
 
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
+
 
     const foundMacroPlans = await MacroChartedStock.aggregate([
         {
@@ -103,6 +104,7 @@ const fetchHistoricalEngineData = asyncHandler(async (req, res) =>
 
             let macroResults = foundMacroPlans.map((t) =>
             {
+
                 let singleSnap = snapShots.find(ss => ss.symbol === t.tickerSymbol)
                 return { macroPlan: t, candleData: macroCandleData[t.tickerSymbol], snapShot: singleSnap }
             })

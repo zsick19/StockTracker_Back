@@ -20,4 +20,8 @@ router.route('/:tradeId/updateRecord')
 
 router.route("/journal")
     .get(TradeController.fetchUsersTradeJournal)
+
+router.route('/manage')
+    .post(TradeController.manageTradeRecord)
+    
 module.exports = router;

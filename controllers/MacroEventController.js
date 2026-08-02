@@ -6,16 +6,24 @@ const csv = require('csv-parser')
 const pdf = require('pdf-parse');
 const User = require("../models/User");
 const MacroChartedStock = require("../models/MacroChartedStock");
-const { getDay } = require("date-fns/getDay");
+const { getDay, subBusinessDays } = require("date-fns");
 const { nextMonday } = require("date-fns/nextMonday");
 const { isMonday } = require("date-fns/isMonday");
 
 const fetchMacroCalendarEventsByDate = asyncHandler(async (req, res) =>
 {
     const { start } = req.query
-    console.log(req.query)
 
-    res.json({ start: start })
+    res.json({
+        calendarEvents: [
+            { title: 'a', eventDate: new Date() },
+            { title: 'a', eventDate: subBusinessDays(new Date(), 3) },
+            { title: 'a', eventDate: subBusinessDays(new Date(), 1) }
+
+
+
+        ]
+    })
 })
 
 const createMacroCalendarEvent = asyncHandler(async (req, res) =>
