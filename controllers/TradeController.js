@@ -119,11 +119,12 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 
 const manageTradeRecord = asyncHandler(async (req, res) =>
 {
-  const { tickerSymbol, recordType, positionSize, purchasePrice, enterExitPlanId } = req.body
+  const { tickerSymbol, recordType, positionSize, purchasePrice, enterExitPlanId, existingTradeId } = req.body
   console.log(req.body)
   if (!tickerSymbol || !recordType || !positionSize || !purchasePrice || !enterExitPlanId) return res.status(400).send('Missing Required Information')
 
-  const foundTradeRecord = await TradeRecord.findOne({ ticker: tickerSymbol, userId: req.userId })
+
+  const foundTradeRecord = existingTradeId ? await TradeRecord.findById(existingTradeId) : undefined
 
 
 
@@ -131,13 +132,13 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
   {
     if (recordType === 'purchase')
     {
-      foundTradeRecord.purchaseRecords.push({ positionSize, purchasePrice, purchaseDate: new Date() })
+      foundTradeRecord.purchaseRecords.push({ positionSize, purchasePrice, sharesRemaining: positionSize, purchaseDate: new Date() })
       foundTradeRecord.markModified('purchaseRecords')
 
       let totalPrice = 0
       let totalShares = 0
-      foundTradeRecord.purchaseRecords.forEach((t) => { totalPrice += t.purchasePrice; totalShares += t.positionSize })
-      foundTradeRecord.averagePurchasePrice = totalPrice / totalShares
+      foundTradeRecord.purchaseRecords.forEach((t) => { totalPrice += (t.purchasePrice * t.sharesRemaining); totalShares += t.positionSize })
+      foundTradeRecord.averagePurchasePrice = parseFloat((totalPrice / totalShares).toFixed(2))
       foundTradeRecord.availableShares = foundTradeRecord.availableShares + positionSize
       await foundTradeRecord.save()
 
@@ -152,7 +153,9 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
       {
         let totalPrice = 0
         let totalShares = 0
-        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += t.sellPrice; totalShares += t.sellSize })
+        foundTradeRecord.purchaseRecords.map((t) => { return { ...t, sharesRemaining: 0 } })
+
+        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += (t.sellPrice * t.sellSize); totalShares += t.sellSize })
         foundTradeRecord.averageSellPrice = totalPrice / totalShares
         foundTradeRecord.availableShares = 0
         await foundTradeRecord.save()
@@ -163,9 +166,17 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
       }
       else
       {
+        let copyArray = [...foundTradeRecord.purchaseRecords]        
+        foundTradeRecord.purchaseRecords = processSale(copyArray, positionSize)
+
+        let totalPurchasePrice = 0
+        let totalPurchaseShares = 0
+        foundTradeRecord.purchaseRecords.forEach((t) => { totalPurchasePrice += (t.purchasePrice * t.sharesRemaining); totalPurchaseShares += t.positionSize })
+        foundTradeRecord.averagePurchasePrice = parseFloat((totalPurchasePrice / totalPurchaseShares).toFixed(2))
+
         let totalPrice = 0
         let totalShares = 0
-        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += t.sellPrice; totalShares += t.sellSize })
+        foundTradeRecord.sellRecords.forEach((t) => { totalPrice += (t.sellPrice * t.sellSize); totalShares += t.sellSize })
         foundTradeRecord.averageSellPrice = totalPrice / totalShares
         foundTradeRecord.availableShares = remainingShares
         await foundTradeRecord.save()
@@ -184,7 +195,7 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
         tickerSymbol,
         enterExitPlanId,
         userId: req.userId,
-        purchaseRecords: [{ positionSize, purchasePrice, purchaseDate: new Date() }],
+        purchaseRecords: [{ positionSize, purchasePrice, sharesRemaining: positionSize, purchaseDate: new Date() }],
         sellRecords: [],
         availableShares: positionSize,
         averagePurchasePrice: purchasePrice,
@@ -208,6 +219,46 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
 })
 
 
+/**
+ * Deducts sold shares from the lowest-priced purchase records first.
+ * @param {Array<Object>} tradeArray - Array of purchase trade objects.
+ * @param {number} sharesToSell - Total number of shares being sold.
+ * @returns {Array<Object>} A new array with updated sharesRemaining values.
+ */
+function processSale(tradeArray, sharesToSell)
+{
+  // Create a deep copy to prevent mutating the original input array directly
+  const updatedArray = tradeArray;
+  let remainingToDeduct = sharesToSell;
+
+  while (remainingToDeduct > 0)
+  {
+    // 1. Find all records that still have shares available to sell
+    const availableTrades = updatedArray.filter(trade => trade.sharesRemaining > 0);
+    
+    // 2. If no shares are left anywhere but we still have shares to sell, break to avoid infinite loop
+    if (availableTrades.length === 0)
+    {
+      console.warn("Warning: Shares to sell exceeds total available shares remaining.");
+      break;
+    }
+
+    // 3. Find the trade object with the absolute lowest purchasePrice
+    const lowestPriceTrade = availableTrades.reduce((lowest, current) =>
+    {
+      return current.purchasePrice < lowest.purchasePrice ? current : lowest;
+    });
+
+    // 4. Determine how many shares can be taken from this specific record
+    const sharesDeducted = Math.min(lowestPriceTrade.sharesRemaining, remainingToDeduct);
+
+    // 5. Update both the specific record and the overall remaining count
+    lowestPriceTrade.sharesRemaining -= sharesDeducted;
+    remainingToDeduct -= sharesDeducted;
+  }
+
+  return updatedArray;
+}
 
 
 

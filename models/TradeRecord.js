@@ -4,6 +4,7 @@ const mongoose = require('mongoose')
 const purchaseSchema = new mongoose.Schema({
     purchasePrice: { type: Number },
     positionSize: { type: Number },
+    sharesRemaining: Number,
     purchaseDate: { type: Date },
 }, { _id: false })
 
