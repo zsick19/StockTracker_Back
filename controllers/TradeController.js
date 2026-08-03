@@ -120,7 +120,6 @@ const fetchUsersTradeJournal = asyncHandler(async (req, res) =>
 const manageTradeRecord = asyncHandler(async (req, res) =>
 {
   const { tickerSymbol, recordType, positionSize, purchasePrice, enterExitPlanId, existingTradeId } = req.body
-  console.log(req.body)
   if (!tickerSymbol || !recordType || !positionSize || !purchasePrice || !enterExitPlanId) return res.status(400).send('Missing Required Information')
 
 
@@ -132,7 +131,7 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
   {
     if (recordType === 'purchase')
     {
-      foundTradeRecord.purchaseRecords.push({ positionSize, purchasePrice, sharesRemaining: positionSize, purchaseDate: new Date() })
+      foundTradeRecord.purchaseRecords.push({ positionSize, purchasePrice, sharesRemaining: positionSize, transactionDate: new Date() })
       foundTradeRecord.markModified('purchaseRecords')
 
       let totalPrice = 0
@@ -145,7 +144,7 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
       return res.json({ updatedTrade: foundTradeRecord })
     } else
     {
-      foundTradeRecord.sellRecords.push({ sellSize: positionSize, sellPrice: purchasePrice, sellDate: new Date() })
+      foundTradeRecord.sellRecords.push({ sellSize: positionSize, sellPrice: purchasePrice, transactionDate: new Date() })
       foundTradeRecord.markModified('sellRecords')
 
       let remainingShares = foundTradeRecord.availableShares - positionSize
@@ -195,7 +194,7 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
         tickerSymbol,
         enterExitPlanId,
         userId: req.userId,
-        purchaseRecords: [{ positionSize, purchasePrice, sharesRemaining: positionSize, purchaseDate: new Date() }],
+        purchaseRecords: [{ positionSize, purchasePrice, sharesRemaining: positionSize, transactionDate: new Date() }],
         sellRecords: [],
         availableShares: positionSize,
         averagePurchasePrice: purchasePrice,

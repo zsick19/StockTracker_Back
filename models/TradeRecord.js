@@ -5,13 +5,13 @@ const purchaseSchema = new mongoose.Schema({
     purchasePrice: { type: Number },
     positionSize: { type: Number },
     sharesRemaining: Number,
-    purchaseDate: { type: Date },
+    transactionDate: { type: Date },
 }, { _id: false })
 
 const sellSchema = new mongoose.Schema({
     sellPrice: { type: Number },
     sellSize: { type: Number },
-    sellDate: { type: Date },
+    transactionDate: { type: Date },
 }, { _id: false })
 
 const tradeRecordSchema = new mongoose.Schema({

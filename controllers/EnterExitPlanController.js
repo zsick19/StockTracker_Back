@@ -108,41 +108,47 @@ const togglePlanImportance = asyncHandler(async (req, res) =>
 
   if (!enterExitId) return res.status(400).json({ message: 'Missing required information.' })
   const importantDate = new Date()
+
+
   if (markImportant)
   {
     const foundEnterExitPlan = await EnterExitPlannedStock.findById(enterExitId)
     foundEnterExitPlan.highImportance = importantDate
 
-    if (!foundEnterExitPlan?.extentProb || !isToday(new Date(foundEnterExitPlan.extentProb?.dateCalculated)))
-    {
-      const startDate = foundEnterExitPlan?.relevantCandleDate.date ? new Date(foundEnterExitPlan.relevantCandleDate.date) : subBusinessDays(new Date(), 45)
-      const fiveMinCandles = await alpaca.getBarsV2(foundEnterExitPlan.tickerSymbol, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
-      const candleData = [];
-      for await (let b of fiveMinCandles) { candleData.push(b); }
+    // if (!foundEnterExitPlan?.extentProb || !isToday(new Date(foundEnterExitPlan.extentProb?.dateCalculated)))
+    // {
+    //   const startDate = foundEnterExitPlan?.relevantCandleDate.date ? new Date(foundEnterExitPlan.relevantCandleDate.date) : subBusinessDays(new Date(), 45)
+    //   const fiveMinCandles = await alpaca.getBarsV2(foundEnterExitPlan.tickerSymbol, { timeframe: alpaca.newTimeframe(5, alpaca.timeframeUnit.MIN), start: startDate })
+    //   const candleData = [];
+    //   for await (let b of fiveMinCandles) { candleData.push(b); }
 
-      const probability = calculateExtendedSessionProbabilities(candleData)
-      foundEnterExitPlan.extentProb = {
-        openH: probability.morningSession.highPrintedPercent,
-        openL: probability.morningSession.lowPrintedPercent,
-        midH: probability.middaySession.highPrintedPercent,
-        midL: probability.middaySession.lowPrintedPercent,
-        closeH: probability.closingSession.highPrintedPercent,
-        closeL: probability.closingSession.lowPrintedPercent,
-        dateCalculated: new Date()
-      }
+    //   const probability = calculateExtendedSessionProbabilities(candleData)
+    //   foundEnterExitPlan.extentProb = {
+    //     openH: probability.morningSession.highPrintedPercent,
+    //     openL: probability.morningSession.lowPrintedPercent,
+    //     midH: probability.middaySession.highPrintedPercent,
+    //     midL: probability.middaySession.lowPrintedPercent,
+    //     closeH: probability.closingSession.highPrintedPercent,
+    //     closeL: probability.closingSession.lowPrintedPercent,
+    //     dateCalculated: new Date()
+    //   }
 
-      const morningMetrics = calculateCompleteMorningMetrics(candleData)
-      foundEnterExitPlan.morningMetrics = { upSide: { ...morningMetrics.upsideMetrics }, downSide: { ...morningMetrics.downsideMetrics }, dateCalculated: new Date() }
-    }
+    //   const morningMetrics = calculateCompleteMorningMetrics(candleData)
+    //   foundEnterExitPlan.morningMetrics = { upSide: { ...morningMetrics.upsideMetrics }, downSide: { ...morningMetrics.downsideMetrics }, dateCalculated: new Date() }
+    // }
     await foundEnterExitPlan.save()
 
-    res.json({ highImportance: importantDate, extentProb: foundEnterExitPlan.extentProb, morningMetrics: foundEnterExitPlan.morningMetrics })
+    res.json({ highImportance: importantDate })
+    // extentProb: foundEnterExitPlan.extentProb, morningMetrics: foundEnterExitPlan.morningMetrics 
   } else
   {
     await EnterExitPlannedStock.findByIdAndUpdate(enterExitId, { highImportance: null })
     res.json({ highImportance: undefined })
   }
 })
+
+
+
 const togglePlanForTomorrow = asyncHandler(async (req, res) =>
 {
   const { enterExitId } = req.params
