@@ -53,6 +53,7 @@ app.use("/news", require('./routes/newsFeedRoutes'))
 app.use('/macroCalendar', require('./routes/calendarEventRoutes'))
 app.use('/alerts', require('./routes/alertRoutes'))
 app.use('/util', require('./routes/utilityRoutes'))
+app.use('/journal', require('./routes/journalRoutes'))
 
 app.all("/*catch", (req, res) =>
 {

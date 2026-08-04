@@ -340,11 +340,23 @@ const fetchOpeningCrossData = asyncHandler(async (req, res) =>
     const foundUser = await User.findById(req.userId)
         .populate('planAndTrackedStocks', 'tickerSymbol openCrossMetrics')
         .select('planAndTrackedStocks -_id');
-
-
     if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
-    res.json(foundUser)
+
+
+    const allPlans = []
+    foundUser.planAndTrackedStocks.forEach((t) => { allPlans.push(t.tickerSymbol) })
+    allPlans.push(...macroAndSectorTickers)
+
+    try
+    {
+        const snapShots = await alpaca.getSnapshots(allPlans)
+        res.json({ openCross: foundUser.planAndTrackedStocks, snapShots })
+    } catch (error)
+    {
+        res.json({ openCross: foundUser.planAndTrackedStocks })
+    }
+
 })
 
 const fetchMorningData = asyncHandler(async (req, res) =>

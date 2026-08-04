@@ -22,7 +22,7 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 {
   if (!req.userId) return res.status(400).send("missing information");
 
-  const foundUser = await User.findById(req.userId).populate('userStockHistory');
+  const foundUser = await User.findById(req.userId).populate('userStockHistory journalEntries');
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
 

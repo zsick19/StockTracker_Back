@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
   accountPL: { type: mongoose.Schema.Types.ObjectId, ref: "AccountPL" },
   spyChartId: { type: mongoose.Schema.Types.ObjectId, ref: "ChartableStock" },
 
+  journalEntries: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "JournalRecord" }],
   oldestRelevantDateToFetch: Date,
 
   confirmedStocks: [{ type: mongoose.Schema.Types.ObjectId, default: [], ref: "ChartableStock" }],
