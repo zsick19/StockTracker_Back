@@ -22,7 +22,9 @@ const userLoginDataFetch = asyncHandler(async (req, res) =>
 {
   if (!req.userId) return res.status(400).send("missing information");
 
-  const foundUser = await User.findById(req.userId).populate('userStockHistory journalEntries');
+  const foundUser = await User.findById(req.userId).populate('userStockHistory journalEntries accountPL')
+    .select('userStockHistory journalEntries accountPL oldestRelevantDateToFetch dailyTasks spyChartId')
+
   if (!foundUser) res.status(404).json({ message: 'User not found.' })
 
 
@@ -111,6 +113,23 @@ const updateAccountRiskThreshold = asyncHandler(async (req, res) =>
   res.json({ message: 'updated' })
 })
 
+const updateAccountBalance = asyncHandler(async (req, res) =>
+{
+  const { updateAmount, action } = req.body
+  if (!updateAmount || !action) return res.status(400).send('Missing Required Information')
+
+  let update
+  if (action === 'Deposit')
+  {
+    update = updateAmount
+  } else if (action === 'Withdraw')
+  {
+    update = updateAmount * -1
+  }
+  const updateComplete = await AccountPL.findByIdAndUpdate(req.userId, { $inc: { accountDeposit: update } }, { new: true })
+
+  res.json(updateComplete)
+})
 
 
 
@@ -352,5 +371,6 @@ module.exports = {
   fetchUserEnterExitPlans,
   resetUser,
   fetchUsersTinyEnterExitPlans,
-  refreshUsersStreamingTickers
+  refreshUsersStreamingTickers,
+  updateAccountBalance
 };

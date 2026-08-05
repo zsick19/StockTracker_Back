@@ -16,6 +16,9 @@ router.route('/streamRefresh')
 
 router.route("/account")
     .get(UserController.fetchAccountPL)
+    .post(UserController.updateAccountBalance)
+
+
 router.route("/account/riskThreshold")
     .get(UserController.updateAccountRiskThreshold)
 

@@ -157,6 +157,10 @@ const manageTradeRecord = asyncHandler(async (req, res) =>
         foundTradeRecord.sellRecords.forEach((t) => { totalPrice += (t.sellPrice * t.sellSize); totalShares += t.sellSize })
         foundTradeRecord.averageSellPrice = totalPrice / totalShares
         foundTradeRecord.availableShares = 0
+
+        
+
+
         await foundTradeRecord.save()
 
         const foundUserUpdate = await User.findByIdAndUpdate(req.userId, { $pull: { activeTradeRecords: foundTradeRecord._id }, $push: { previousTradeRecords: foundTradeRecord._id } })

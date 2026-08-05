@@ -25,6 +25,9 @@ const depositWithdrawsSchema = new mongoose.Schema({
 
 const accountPLSchema = new mongoose.Schema({
     accountDeposit: Number,
+
+
+    
     cashBalance: Number,
     maxLossPerTradePercent: Number,
     maxLossPerTradeDollar: Number,
