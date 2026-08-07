@@ -5,5 +5,7 @@ const JournalController = require('../controllers/JournalController')
 router.route('/')
     .post(JournalController.createJournalEntry)
 
+router.route('/:journalId')
+    .delete(JournalController.removeJournalEntry)
 
 module.exports = router;

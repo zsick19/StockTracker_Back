@@ -14,6 +14,63 @@ const sellSchema = new mongoose.Schema({
     transactionDate: { type: Date },
 }, { _id: false })
 
+
+const backTestedLedgerSchema = new mongoose.Schema({
+    details: {
+        wasExitHit: Boolean,
+        wasStopHit: Boolean,
+        tradeDate: Date,
+        holdDays: Number,
+        closeOrHoldTillDate: Date,
+    },
+    gain: {
+        maxGain: Number,
+        highestValue: Number,
+        highestValuePercent: Number,
+        missedGain: Number,
+        dateOfHighestValue: Date
+    },
+    pain: {
+        maxPain: Number,
+        avoidedPain: Number,
+        lowestValue: Number,
+        lowestValuePercent: Number,
+        dateOfLowestValue: Date
+    }
+}, { _id: false })
+
+const backTestedAverageSchema = new mongoose.Schema({
+    averageHoldTime: Number,
+    averageMaxGain: Number,
+    averageGainPercent: Number,
+    averageMaxPain: Number,
+    averagePainPercent: Number,
+    averageMissGain: Number,
+    averageSavedPain: Number,
+
+    totalNumberOfTrades: Number,
+    numberOfStoplossHitTrades: Number,
+    numberOfClosedTrades: Number,
+    numberOfOpenTrades: Number,
+
+    tradesSinceTracking: Number,
+    successfulOpportunitiesSinceTracking: Number,
+    patternLength: Number,
+    daysBetweenTrades: [Number],
+    averageDaysBetweenTrades: Number,
+    daysBetweenSuccessfulTrades: [Number],
+    averageDaysBetweenSuccessfulTrades: Number,
+
+    patternMaxGain: Number,
+    patternMaxPain: Number,
+    positionReward: Number,
+    positionRisk: Number,
+    lowestPatternValue: Number,
+    highestPatternValue: Number
+}, { _id: false })
+
+
+
 const tradeRecordSchema = new mongoose.Schema({
     tickerSymbol: { type: String, require: true },
     enterExitPlanId: { type: mongoose.Schema.Types.ObjectId, ref: 'PlannedStock', },
@@ -29,7 +86,10 @@ const tradeRecordSchema = new mongoose.Schema({
     enterDate: { type: Date },
     exitDate: { type: Date },
 
-
+    averagePriceDateBackTests: {
+        backTests: [backTestedLedgerSchema],
+        averages: backTestedAverageSchema
+    },
 
 
 

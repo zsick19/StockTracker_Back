@@ -41,6 +41,21 @@ const createJournalEntry = asyncHandler(async (req, res) =>
   }
 });
 
+const removeJournalEntry = asyncHandler(async (req, res) =>
+{
+  const { journalId } = req.params
+  console.log(journalId)
+  if (!journalId) return res.status(400).send('Missing Required Information')
+
+  const results = await JournalRecords.findByIdAndDelete(journalId)
+
+  const updatedUser = await User.findByIdAndUpdate(req.userId, {
+    $pull: { journalEntries: journalId }
+  })
+  res.json({ removedEntry: journalId })
+})
+
 module.exports = {
-  createJournalEntry
+  createJournalEntry,
+  removeJournalEntry
 };
